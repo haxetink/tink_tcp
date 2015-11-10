@@ -36,6 +36,20 @@ class Connection {
 		}
 	}
   
+  #if (neko || cpp || java)
+    static public function wrap(to:Endpoint, s:sys.net.Socket, ?selectTime = .001, ?reader, ?writer, ?close:Void->Void):Connection
+      return
+        new Connection(
+          Source.ofInput('Inbound stream from $to', new SocketInput(s, selectTime), reader),
+          Sink.ofOutput('Outbound stream to $to', new SocketOutput(s, selectTime), writer),
+          '[Connection to $to]',
+          switch close {
+            case null: s.close;
+            case v: v;
+          }  
+        );
+  #end
+  
   static public function tryEstablish(to:Endpoint, ?reader:Worker, ?writer:Worker):Surprise<Connection, Error> {
     var name = '[Connection to $to]';
     function fail(e:Dynamic)
@@ -46,48 +60,13 @@ class Connection {
         try {
           s.connect(new sys.net.Host(to.host), to.port);
           s.setBlocking(false);
-          
-          Success(new Connection(
-            Source.ofInput('Inbound stream from $to', new SocketInput(s, .001), reader),
-            Sink.ofOutput('Outbound stream to $to', new SocketOutput(s, .001), writer),
-            name,
-            s.close
-          ));
+          Success(wrap(to, s, reader, writer));
         }
         catch (e:Dynamic) 
           fail(e)
       );
     #elseif nodejs
       return Future.async(function (cb) {
-        var c:Dynamic = null;
-        var ended = false;
-        function end() {
-          if (!ended) { 
-            ended = true;
-            c.end();
-          }
-          return Future.sync(Success(Noise));
-        }
-        
-        
-        function next(handlers:Dynamic<Dynamic->Void>) {
-          var handlers:DynamicAccess<Dynamic->Void> = handlers;
-          
-          function removeAll() {
-            for (key in handlers.keys())
-              c.removeListener(key, handlers[key]);
-          }
-          
-          for (key in handlers.keys()) {
-            var old = handlers[key];
-            var nu = handlers[key] = function (x) {
-              old(x);
-              removeAll();
-            }
-            c.addListener(key, nu);
-          }
-          
-        }
         
         var c:js.node.net.Socket = null;
         
@@ -106,6 +85,7 @@ class Connection {
         
         c.once('error', handleConnectError);
       });
+    #elseif flash
     #else
       #error
     #end
