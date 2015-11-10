@@ -48,6 +48,15 @@ class Connection {
             case v: v;
           }  
         );
+  #elseif nodejs
+    static public function wrap(to:Endpoint, c:js.node.net.Socket):Connection {
+      return new Connection(
+        Source.ofNodeStream(c, 'Inbound stream from $to'),
+        Sink.ofNodeStream(c, 'Outbound stream to $to'),
+        '[Connection to $to]',
+        function () {}
+      );
+    }
   #end
   
   static public function tryEstablish(to:Endpoint, ?reader:Worker, ?writer:Worker):Surprise<Connection, Error> {
@@ -74,13 +83,7 @@ class Connection {
         
         c = js.node.Net.createConnection(to.port, to.host, function () {
           c.removeListener('error', handleConnectError);
-          var cnx = new Connection(
-            Source.ofNodeStream(c, name),
-            Sink.ofNodeStream(c, name),
-            name,
-            function () {}
-          );
-          cb(Success(cnx));
+          cb(Success(wrap(to, c)));
         });
         
         c.once('error', handleConnectError);

@@ -14,20 +14,9 @@ abstract Server(ServerObject) from ServerObject {
   @:require(neko || java || cpp || nodejs)
   static public function bind(port:Int):Surprise<Server, Error> {
     #if (neko || java || cpp)
-      var workers = [for (i in 0...10) tink.RunLoop.current.createSlave()];
-      return Future.sync(
-        Success(
-          (new SysServer(
-            workers.pop(), 
-            function () {
-              return workers[Std.random(workers.length)];//the naive hope is that randomness makes it harder to glue down a single worker
-            },
-            port
-          ) : Server)
-        )
-      );
+      return SysServer.bind(port);
     #elseif nodejs
-    
+      return NodeServer.bind(port);
     #else
       return null;
     #end
@@ -109,5 +98,56 @@ class SysServer implements ServerObject {
 		socket.close();
 	}
   
+  static public function bind(port:Int) {
+    var workers = [for (i in 0...10) tink.RunLoop.current.createSlave()];
+    return Future.sync(
+      Success(
+        (new SysServer(
+          workers.pop(), 
+          function () {
+            return workers[Std.random(workers.length)];//the naive hope is that randomness makes it harder to glue down a single worker
+          },
+          port
+        ) : Server)
+      )
+    );    
+  }
+  
+}
+#elseif nodejs
+class NodeServer implements ServerObject {
+  var native:js.node.net.Server;
+  public var connected(get, null):Signal<Connection>;
+  
+  function get_connected()
+    return connected;
+    
+  public function new(server) {
+    this.native = server;
+    var t = Signal.trigger();
+    native.on('connection', function (c:js.node.net.Socket) {
+      t.trigger(Connection.wrap({ port: c.remotePort, host: c.remoteAddress }, c));
+    });
+    connected = t;
+  }
+  
+  public function close() {
+    native.close();
+  }
+  
+  static public function bind(port:Int) {
+    var server = js.node.Net.createServer();
+    server.listen(port);
+    return 
+      Future.async(function (cb) {
+        server.on('listening', function (_) {
+          cb(Success((new NodeServer(server) : Server)));
+        });
+        server.on('error', function (e) {
+          cb(Failure(new Error('Failed to open server on port $port because $e')));
+        });
+      });
+  }
+
 }
 #end
