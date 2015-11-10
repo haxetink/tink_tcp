@@ -1,5 +1,7 @@
 package tink.tcp;
 
+import haxe.DynamicAccess;
+import haxe.io.Bytes;
 import tink.io.*;
 
 using tink.CoreApi;
@@ -34,8 +36,10 @@ class Connection {
 		}
 	}
   
-  static public function tryEstablish(to:Endpoint, ?reader:Worker, ?writer:Worker) {
+  static public function tryEstablish(to:Endpoint, ?reader:Worker, ?writer:Worker):Surprise<Connection, Error> {
     var name = '[Connection to $to]';
+    function fail(e:Dynamic)
+      return Failure(Error.reporter(500, 'Failed to establish $name')(e));
     #if (neko || cpp || java)
       var s = new Socket();
       return Future.sync(
@@ -51,10 +55,57 @@ class Connection {
           ));
         }
         catch (e:Dynamic) 
-          Failure(Error.reporter(500, 'Failed to establish $name')(e))
+          fail(e)
       );
     #elseif nodejs
-      
+      return Future.async(function (cb) {
+        var c:Dynamic = null;
+        var ended = false;
+        function end() {
+          if (!ended) { 
+            ended = true;
+            c.end();
+          }
+          return Future.sync(Success(Noise));
+        }
+        
+        
+        function next(handlers:Dynamic<Dynamic->Void>) {
+          var handlers:DynamicAccess<Dynamic->Void> = handlers;
+          
+          function removeAll() {
+            for (key in handlers.keys())
+              c.removeListener(key, handlers[key]);
+          }
+          
+          for (key in handlers.keys()) {
+            var old = handlers[key];
+            var nu = handlers[key] = function (x) {
+              old(x);
+              removeAll();
+            }
+            c.addListener(key, nu);
+          }
+          
+        }
+        
+        var c:js.node.net.Socket = null;
+        
+        function handleConnectError(e) cb(fail(e));
+        
+        c = js.node.Net.createConnection(to.port, to.host, function () {
+          c.removeListener('error', handleConnectError);
+          var cnx = new Connection(
+            Source.ofNodeStream(c, name),
+            Sink.ofNodeStream(c, name),
+            name,
+            function () {}
+          );
+          cb(Success(cnx));
+        });
+        
+        c.once('error', handleConnectError);
+      });
     #else
       #error
     #end
