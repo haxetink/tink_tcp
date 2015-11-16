@@ -1,6 +1,6 @@
 package tink.tcp;
 
-typedef EndpointData = {
+private typedef EndpointData = {
   public var host(default, null):String;
 	public var port(default, null):Int;
 }

@@ -40,8 +40,8 @@ class Connection {
     static public function wrap(to:Endpoint, s:sys.net.Socket, ?selectTime = .001, ?reader, ?writer, ?close:Void->Void):Connection
       return
         new Connection(
-          Source.ofInput('Inbound stream from $to', new SocketInput(s, selectTime), reader),
-          Sink.ofOutput('Outbound stream to $to', new SocketOutput(s, selectTime), writer),
+          Source.ofInput('Inbound stream from $to', new SocketInput(s, -.001), reader),
+          Sink.ofOutput('Outbound stream to $to', new SocketOutput(s, -.001), writer),
           '[Connection to $to]',
           switch close {
             case null: s.close;
@@ -125,7 +125,7 @@ private class SocketInput extends haxe.io.Input {
 	
   function select()
     return  
-      if (selectTime > 0)
+      if (selectTime >= 0)
         Socket.select(sockets, null, null, .0).read;
       else
         sockets;
@@ -156,7 +156,7 @@ private class SocketOutput extends haxe.io.Output {
     
   function select()
     return  
-      if (selectTime > 0)
+      if (selectTime >= 0)
         Socket.select(null, sockets, null, .0).write;
       else
         sockets;

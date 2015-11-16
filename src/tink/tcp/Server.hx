@@ -3,6 +3,9 @@ package tink.tcp;
 #if sys
 import sys.net.Host;
 import sys.net.Socket;
+#end
+
+#if tink_runloop
 import tink.runloop.Worker;
 import tink.runloop.Task;
 #end
@@ -11,14 +14,25 @@ using tink.CoreApi;
 
 @:forward
 abstract Server(ServerObject) from ServerObject {
+  /**
+   * Attempts binding a server to a port.
+   * 
+   * Requires either combination:
+   * 
+   * - `-lib nodejs` (and `-js` of course)
+   * - `-lib tink_runloop` and one of `-neko` or `-java` or `-cpp`
+   */
   @:require(neko || java || cpp || nodejs)
+  #if (neko || java || cpp)
+    @:require(tink_runloop)
+  #end
   static public function bind(port:Int):Surprise<Server, Error> {
-    #if (neko || java || cpp)
+    #if ((neko || java || cpp) && tink_runloop)
       return SysServer.bind(port);
     #elseif nodejs
       return NodeServer.bind(port);
     #else
-      return null;
+      return Future.sync(Failure(new Error('Not implemented on current platform')));//technically, this is unreachable
     #end
   }
 }
@@ -29,7 +43,7 @@ interface ServerObject {
 }
 
 
-#if (neko || java || cpp)
+#if (tink_runloop && (neko || java || cpp))
 class SysServer implements ServerObject {
 	var socket:Socket;
 	var usher:Worker;
@@ -51,11 +65,10 @@ class SysServer implements ServerObject {
 		this.socket = new Socket();
 		this.socket.bind(new Host('localhost'), port);
 		this.socket.listen(0x4000);
-				
-		//if (usher == usher.owner) 
-			
-		//if (usher.step() != WrongThread)
-    this.socket.setBlocking(false);
+							
+		if (#if concurrent usher.step() != WrongThread #else true #end)
+      this.socket.setBlocking(false);
+      
 		this.usher = usher;
 		this.getScribe = getScribe;
 		
@@ -70,6 +83,8 @@ class SysServer implements ServerObject {
 		try {
 			//if (usher == usher.owner && currentlyBusy == 0 && Math.random() > .75)
 				//Sys.sleep(.001);
+        
+        //the above is a left over attempt to avoid maxing out a core with busy waiting
 			
 			var client = socket.accept(),
 					scribe = getScribe();
@@ -83,9 +98,10 @@ class SysServer implements ServerObject {
       usher.owner.work(function () _connected.trigger(connection));
 		}
 		catch (e:Dynamic) {
-      if (releaseKeepAlive.state == Pending)
+      if (releaseKeepAlive.state == Pending) {
         if (e != 'Blocking' && e != haxe.io.Error.Blocked) 
           throw e;
+      }
 		}
 				
 		usher.work(accept);
