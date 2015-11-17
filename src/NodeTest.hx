@@ -8,10 +8,10 @@ import tink.tcp.*;
 using tink.CoreApi;
 
 class NodeTest {
-  static var total = 1000;
+  static var total = 100;
   static var message = {
-    //var accumulated = [for (i in 0...10000) 'Is it me you\'re looking for $i?'].join(' ');
-    var bytes = Bytes.ofString('world');
+    var accumulated = [for (i in 0...10000) 'Is it me you\'re looking for $i?'].join(' ');
+    var bytes = Bytes.ofString(accumulated);
     bytes;
   }
   

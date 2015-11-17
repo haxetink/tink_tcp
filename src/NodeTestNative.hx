@@ -9,10 +9,9 @@ import js.node.net.Socket;
 import js.node.stream.Writable;
 
 class NodeTestNative {
-  static var total = 1000;
+  static var total = 100;
   static var message = {
     var s = [for (i in 0...10000) 'Is it me you\'re looking for $i?'].join(' ');
-    s = 'world';
     var buf = new Buffer(s, 'utf8');    
     buf;
   }
@@ -29,7 +28,6 @@ class NodeTestNative {
     var server = Net.createServer(function (socket) {
       socket.write('\nhello\n');
       socket.pipe(socket);
-      //socket.end('hello', 'utf8');
     });
     server.listen(3000);
     
@@ -43,7 +41,7 @@ class NodeTestNative {
   static function sequential(out:IWritable, close) {
     var last:Socket = null;
     for (i in 0...total) {
-      var socket = Net.createConnection(3000);
+      var socket = Net.createConnection(3000, '127.0.0.1');
       
       if (last == null)
         socket.end(message);
@@ -63,7 +61,7 @@ class NodeTestNative {
         close();
     
     for (i in 0...total) {
-      var socket = Net.createConnection(3000);
+      var socket = Net.createConnection(3000, '127.0.0.1');
       socket.end(message);
       socket.on('close', function () {
         dec();
