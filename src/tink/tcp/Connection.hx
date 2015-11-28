@@ -40,8 +40,8 @@ class Connection {
     static public function wrap(to:Endpoint, s:sys.net.Socket, ?selectTime = .001, ?reader, ?writer, ?close:Void->Void):Connection
       return
         new Connection(
-          Source.ofInput('Inbound stream from $to', new SocketInput(s, -.001), reader),
-          Sink.ofOutput('Outbound stream to $to', new SocketOutput(s, -.001), writer),
+          Source.ofInput('Inbound stream from $to', new SocketInput(s, selectTime), reader),
+          Sink.ofOutput('Outbound stream to $to', new SocketOutput(s, selectTime), writer),
           '[Connection to $to]',
           switch close {
             case null: s.close;
@@ -65,14 +65,14 @@ class Connection {
       return Failure(Error.reporter(500, 'Failed to establish $name')(e));
     #if (neko || cpp || java)
       var s = new Socket();
-      return Future.sync(
+      return Future.async(function (cb) 
         try {
           s.connect(new sys.net.Host(to.host), to.port);
           s.setBlocking(false);
-          Success(wrap(to, s, reader, writer));
+          cb(Success(wrap(to, s, reader, writer)));
         }
         catch (e:Dynamic) 
-          fail(e)
+          cb(fail(e))
       );
     #elseif nodejs
       return Future.async(function (cb) {
@@ -126,7 +126,7 @@ private class SocketInput extends haxe.io.Input {
   function select()
     return  
       if (selectTime >= 0)
-        Socket.select(sockets, null, null, .0).read;
+        Socket.select(sockets, null, null, selectTime).read;
       else
         sockets;
     
@@ -157,7 +157,7 @@ private class SocketOutput extends haxe.io.Output {
   function select()
     return  
       if (selectTime >= 0)
-        Socket.select(null, sockets, null, .0).write;
+        Socket.select(null, sockets, null, selectTime).write;
       else
         sockets;
 	
