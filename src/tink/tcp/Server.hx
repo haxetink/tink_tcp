@@ -94,7 +94,7 @@ class SysServer implements ServerObject {
 			#end
       var peer = client.peer();
 			//TODO: consider having separate threads for output to reduce back pressure
-			var connection = Connection.wrap( { port: peer.port, host: peer.host.toString() }, client, scribe, scribe);			
+			var connection = Connection.wrap( { port: peer.port, host: peer.host.toString() }, client, 0, scribe, scribe);			
       usher.owner.work(function () _connected.trigger(connection));
 		}
 		catch (e:Dynamic) {
