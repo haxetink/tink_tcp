@@ -1,0 +1,6 @@
+-lib tink_io
+-lib hxnodejs
+-lib obfoo
+-cp src
+-js bin/tinktcp.js
+-main NodeTest

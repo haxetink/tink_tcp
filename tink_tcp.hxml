@@ -1,0 +1,7 @@
+-lib tink_io
+-lib tink_runloop
+-cp src
+-cp tests
+-neko bin/tinktcp.n
+-D concurrent
+-main NodeTest
