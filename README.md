@@ -30,4 +30,4 @@ abstract Server {
 }
 ```
 
-The difference between the two methods to establish connections is that the latter will simply pretend it is connected and give you errors when you try to read from the source or write to the sink. The main use of tryEstablish is to determine if a connection to some port is possible, without wanting to do any IO. On nodejs, the workers are currently not actually used by the current implementation. Note that on neko, java and cpp, this library will require you to add `-lib tink_runloop`. Use `-D concurrent` to use multiple threads.
+The difference between the two methods to establish connections is that the latter will simply pretend it is connected and give you errors when you try to read from the source or write to the sink. The main use of tryEstablish is to determine if a connection to some port is possible, without wanting to do any IO. On nodejs, the workers are currently not actually used by the current implementation. Note that for binding ports on neko, java and cpp, this library will require you to add `-lib tink_runloop`. Use `-D concurrent` to use multiple threads.
