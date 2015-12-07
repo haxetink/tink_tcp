@@ -37,17 +37,19 @@ class Connection {
 	}
   
   #if (neko || cpp || java)
-    static public function wrap(to:Endpoint, s:sys.net.Socket, ?selectTime = .001, ?reader, ?writer, ?close:Void->Void):Connection
+    static public function wrap(to:Endpoint, s:sys.net.Socket, ?selectTime = .001, ?reader, ?writer, ?close:Void->Void):Connection {
+      s.setBlocking(false);
       return
         new Connection(
           Source.ofInput('Inbound stream from $to', new SocketInput(s, selectTime), reader),
           Sink.ofOutput('Outbound stream to $to', new SocketOutput(s, selectTime), writer),
           '[Connection to $to]',
           switch close {
-            case null: s.close;
+            case null: function () writer.work(function () { s.close(); return true; });
             case v: v;
           }  
         );
+    }
   #elseif nodejs
     static public function wrap(to:Endpoint, c:js.node.net.Socket):Connection {
       return new Connection(
@@ -61,14 +63,13 @@ class Connection {
   
   static public function tryEstablish(to:Endpoint, ?reader:Worker, ?writer:Worker):Surprise<Connection, Error> {
     var name = '[Connection to $to]';
-    function fail(e:Dynamic)
+    function fail(e:Dynamic) 
       return Failure(Error.reporter(500, 'Failed to establish $name')(e));
     #if (neko || cpp || java)
       var s = new Socket();
       return Future.async(function (cb) 
         try {
           s.connect(new sys.net.Host(to.host), to.port);
-          s.setBlocking(false);
           cb(Success(wrap(to, s, reader, writer)));
         }
         catch (e:Dynamic) 
@@ -116,11 +117,16 @@ class Connection {
 #if sys
 private class SocketInput extends haxe.io.Input {
 	var sockets:Array<Socket>;
-  var selectTime:Float = 0;
+  var selectTime:Float;
 	
 	public function new(s, selectTime) {
 		this.sockets = [s];
-    this.selectTime = selectTime;
+    this.selectTime = 
+      #if java
+        -1;
+      #else
+        selectTime;
+      #end
   }
 	
   function select()
@@ -144,14 +150,18 @@ private class SocketInput extends haxe.io.Input {
       
 }
 
-
 private class SocketOutput extends haxe.io.Output {
 	var sockets:Array<Socket>;
-  var selectTime:Float = 0;
+  var selectTime:Float;
   
 	public function new(s, selectTime) {
 		this.sockets = [s];
-    this.selectTime = selectTime;
+    this.selectTime = 
+      #if java
+        -1;
+      #else
+        selectTime;
+      #end
   }
     
   function select()

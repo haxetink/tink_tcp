@@ -8,7 +8,7 @@ private typedef EndpointData = {
 @:forward
 abstract Endpoint(EndpointData) from EndpointData {
   @:from static function fromPort(port:Int):Endpoint
-    return { port: port, host: 'localhost' };
+    return { port: port, host: '127.0.0.1' };
   
   @:to function toString():String
   return '${this.host}:${this.port}';

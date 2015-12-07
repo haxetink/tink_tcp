@@ -3,5 +3,5 @@
 -cp src
 -cp tests
 -neko bin/tinktcp.n
--D concurrentg
+-D concurrent
 -main NodeTest

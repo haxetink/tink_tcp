@@ -1,11 +1,12 @@
 {
-	"name": "tink_runloop",
+	"name": "tink_tcp",
 	"license": "MIT",
 	"tags": [
 		"tink",
 		"cross",
-		"io",
-		"async"
+		"tcp",
+		"net",
+    "socket"
 	],
 	"classPath": "src",
 	"description": "TCP everywhere",

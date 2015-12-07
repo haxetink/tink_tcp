@@ -4,7 +4,7 @@ package tink.tcp;
 import sys.net.Host;
 import sys.net.Socket;
 #end
-
+import tink.io.*;
 #if tink_runloop
 import tink.runloop.Worker;
 import tink.runloop.Task;
@@ -63,11 +63,17 @@ class SysServer implements ServerObject {
 		this._connected = Signal.trigger();
 		
 		this.socket = new Socket();
+    //TODO: the two steps below should be done by the usher
 		this.socket.bind(new Host('localhost'), port);
 		this.socket.listen(0x4000);
 							
 		if (#if concurrent usher.step() != WrongThread #else true #end)
-      this.socket.setBlocking(false);
+      #if java {
+        @:privateAccess this.socket.server.setSoTimeout(1);
+      }
+      #else
+        this.socket.setBlocking(false);
+      #end
       
 		this.usher = usher;
 		this.getScribe = getScribe;
@@ -84,24 +90,21 @@ class SysServer implements ServerObject {
 			//if (usher == usher.owner && currentlyBusy == 0 && Math.random() > .75)
 				//Sys.sleep(.001);
         
-        //the above is a left over attempt to avoid maxing out a core with busy waiting
-			
+      //the above is a left over attempt to avoid maxing out a core with busy waiting
+        
 			var client = socket.accept(),
 					scribe = getScribe();
 			
-			#if !java
-			client.setBlocking(false);
-			#end
       var peer = client.peer();
 			//TODO: consider having separate threads for output to reduce back pressure
 			var connection = Connection.wrap( { port: peer.port, host: peer.host.toString() }, client, 0, scribe, scribe);			
       usher.owner.work(function () _connected.trigger(connection));
 		}
 		catch (e:Dynamic) {
-      if (releaseKeepAlive.state == Pending) {
-        if (e != 'Blocking' && e != haxe.io.Error.Blocked) 
-          throw e;
-      }
+      //if (releaseKeepAlive.state == Pending) {
+        //if (e != 'Blocking' && e != haxe.io.Error.Blocked) 
+          //throw e;
+      //}
 		}
 				
 		usher.work(accept);
