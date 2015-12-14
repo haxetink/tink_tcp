@@ -11,5 +11,5 @@ abstract Endpoint(EndpointData) from EndpointData {
     return { port: port, host: '127.0.0.1' };
   
   @:to function toString():String
-  return '${this.host}:${this.port}';
+    return '${this.host}:${this.port}';
 }

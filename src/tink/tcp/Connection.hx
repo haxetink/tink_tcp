@@ -14,13 +14,15 @@ class Connection {
 	public var source(default, null):Source;
 	public var sink(default, null):Sink;
 	public var name(default, null):String;
-	
+	public var peer(default, null):Endpoint;
+  
 	var onClose:Callback<Connection>;
   
-	public function new(source, sink, name, onClose) {
+	public function new(source, sink, name, peer, onClose) {
 		this.source = source;
 		this.sink = sink;
 		this.name = name;
+    this.peer = peer;
 		this.onClose = onClose;
 	}
 	
@@ -44,6 +46,7 @@ class Connection {
           Source.ofInput('Inbound stream from $to', new SocketInput(s, selectTime), reader),
           Sink.ofOutput('Outbound stream to $to', new SocketOutput(s, selectTime), writer),
           '[Connection to $to]',
+          to,
           switch close {
             case null: function () writer.work(function () { s.close(); return true; });
             case v: v;
@@ -56,6 +59,7 @@ class Connection {
         Source.ofNodeStream(c, 'Inbound stream from $to'),
         Sink.ofNodeStream(c, 'Outbound stream to $to'),
         '[Connection to $to]',
+        to,
         function () {}
       );
     }
@@ -66,14 +70,14 @@ class Connection {
     function fail(e:Dynamic) 
       return Failure(Error.reporter(500, 'Failed to establish $name')(e));
     #if (neko || cpp || java)
-      var s = new Socket();
-      return Future.async(function (cb) 
+      return reader.work(function () return
         try {
+          var s = new Socket();
           s.connect(new sys.net.Host(to.host), to.port);
-          cb(Success(wrap(to, s, reader, writer)));
+          Success(wrap(to, s, reader, writer));
         }
         catch (e:Dynamic) 
-          cb(fail(e))
+          fail(e)
       );
     #elseif nodejs
       return Future.async(function (cb) {
@@ -103,6 +107,7 @@ class Connection {
         cnx >> function (c:Connection) return c.source,
         cnx >> function (c:Connection) return c.sink,
         name,
+        to,
         function () {
           cnx.handle(function (o) switch o {
             case Success(cnx):
