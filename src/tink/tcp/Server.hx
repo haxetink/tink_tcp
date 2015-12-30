@@ -64,7 +64,7 @@ class SysServer implements ServerObject {
 		
 		this.socket = new Socket();
     //TODO: the two steps below should be done by the usher
-		this.socket.bind(new Host('localhost'), port);
+		this.socket.bind(new Host('0.0.0.0'), port);
 		this.socket.listen(0x4000);
 							
 		if (#if concurrent usher.step() != WrongThread #else true #end)
@@ -97,7 +97,7 @@ class SysServer implements ServerObject {
 			
       var peer = client.peer();
 			//TODO: consider having separate threads for output to reduce back pressure
-			var connection = Connection.wrap( { port: peer.port, host: peer.host.toString() }, client, 0, scribe, scribe);			
+			var connection = Connection.wrap( { port: peer.port, host: peer.host.toString() }, client, scribe, scribe);			
       usher.owner.work(function () _connected.trigger(connection));
 		}
 		catch (e:Dynamic) {

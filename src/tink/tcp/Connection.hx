@@ -39,12 +39,12 @@ class Connection {
 	}
   
   #if (neko || cpp || java)
-    static public function wrap(to:Endpoint, s:sys.net.Socket, ?selectTime = .001, ?reader, ?writer, ?close:Void->Void):Connection {
+    static public function wrap(to:Endpoint, s:sys.net.Socket, ?reader, ?writer, ?close:Void->Void):Connection {
       s.setBlocking(false);
       return
         new Connection(
-          Source.ofInput('Inbound stream from $to', new SocketInput(s, selectTime), reader),
-          Sink.ofOutput('Outbound stream to $to', new SocketOutput(s, selectTime), writer),
+          Source.ofInput('Inbound stream from $to', new SocketInput(s), reader),
+          Sink.ofOutput('Outbound stream to $to', new SocketOutput(s), writer),
           '[Connection to $to]',
           to,
           switch close {
@@ -122,31 +122,42 @@ class Connection {
 #if sys
 private class SocketInput extends haxe.io.Input {
 	var sockets:Array<Socket>;
-  var selectTime:Float;
-	
-	public function new(s, selectTime) {
+  var counter = 0;
+  
+	public function new(s)
 		this.sockets = [s];
-    this.selectTime = 
-      #if java
-        -1;
-      #else
-        selectTime;
-      #end
-  }
-	
-  function select()
-    return  
-      if (selectTime >= 0)
-        Socket.select(sockets, null, null, selectTime).read;
-      else
-        sockets;
     
-	override public function readBytes(buffer:haxe.io.Bytes, pos:Int, len:Int):Int 
-		return 
+  function select() {
+    var selectTime = counter / 10000;
+    
+    return  
+      if (counter <= 10)
+        sockets;
+      else
+        #if java 
+        {
+          Sys.sleep(selectTime);
+          sockets;
+        }
+        #else
+          Socket.select(sockets, null, null, selectTime).read;
+        #end
+  }
+    
+	override public function readBytes(buffer:haxe.io.Bytes, pos:Int, len:Int):Int {
+    if (counter < 100)
+      counter++;
+		var ret = 
 			switch select() {
 				case [s]: s.input.readBytes(buffer, pos, len);
 				default: 0;
 			}
+      
+    if (ret != 0)
+      counter = 0;
+          
+    return ret;      
+  }
 	
   override public function close():Void {
     super.close();
@@ -157,31 +168,42 @@ private class SocketInput extends haxe.io.Input {
 
 private class SocketOutput extends haxe.io.Output {
 	var sockets:Array<Socket>;
-  var selectTime:Float;
+  var counter = 0;
   
-	public function new(s, selectTime) {
+	public function new(s)
 		this.sockets = [s];
-    this.selectTime = 
-      #if java
-        -1;
-      #else
-        selectTime;
-      #end
-  }
     
-  function select()
+  function select() {
+    var selectTime = counter / 10000;
     return  
-      if (selectTime >= 0)
-        Socket.select(null, sockets, null, selectTime).write;
-      else
+      if (counter <= 10)
         sockets;
+      else
+        #if java 
+        {
+          Sys.sleep(selectTime);
+          sockets;
+        }
+        #else
+          Socket.select(null, sockets, null, selectTime).write;
+        #end
+  }
 	
-	override public function writeBytes(buffer:haxe.io.Bytes, pos:Int, len:Int):Int 
-		return 
+	override public function writeBytes(buffer:haxe.io.Bytes, pos:Int, len:Int):Int {
+    if (counter < 100)
+      counter++;
+    
+		var ret =
 			switch select() {
 				case [s]: s.output.writeBytes(buffer, pos, len);
 				default: 0;
 			}
+      
+    if (ret != 0)
+      counter = 0;
+        
+    return ret;
+  }
       
   override public function close():Void {
     super.close();
