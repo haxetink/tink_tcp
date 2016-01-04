@@ -16,14 +16,6 @@ class NodeTest {
   }
   
   static function main() {
-    var cnx = Connection.establish(3000);
-    ('world':Source).pipeTo(cnx.sink).handle(function (x) {
-      trace(x);
-    });
-    cnx.source.pipeTo(Sink.ofOutput('out', Sys.stdout())).handle(function (x) {
-      trace(x);
-    });
-    return;
     #if nodejs
     haxe.Log.trace = function (d:Dynamic, ?p:haxe.PosInfos) {
       js.Node.console.log('${p.fileName}:${p.lineNumber}', Std.string(d));
@@ -67,6 +59,7 @@ class NodeTest {
     
     last.pipeTo(Sink.ofOutput('memory buffer', out)).handle(function (x) {
       trace(x);
+      trace(out.getBytes().length);
       close();
     });
   }
@@ -89,7 +82,7 @@ class NodeTest {
       
       var out = new BytesOutput();
       (cnx.source).pipeTo(Sink.ofOutput('memory buffer', out)).handle(function (y) {
-        out.getBytes();
+        trace(out.getBytes().length);
         cnx.source.close();
         dec();
       });       
