@@ -6,7 +6,7 @@
 		"cross",
 		"tcp",
 		"net",
-    "socket"
+		"socket"
 	],
 	"classPath": "src",
 	"description": "TCP everywhere",
