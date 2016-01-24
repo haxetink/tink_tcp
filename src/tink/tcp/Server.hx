@@ -42,80 +42,106 @@ interface ServerObject {
   function close():Void;
 }
 
-
 #if (tink_runloop && (neko || java || cpp))
-class SysServer implements ServerObject {
-	var socket:Socket;
+class RunloopServer implements ServerObject {
 	var usher:Worker;
-	
 	var releaseKeepAlive:Task;
 	var getScribe:Void->Worker;
-	
+	var boundPort: {
+    function close():Void;
+    function accept(reader:Worker, writer:Worker):Connection;
+  };
 	var _connected:SignalTrigger<Connection>;
 	
 	public var connected(get, never):Signal<Connection>;
 	
 	inline function get_connected() 
 		return _connected.asSignal();
-	
-	public function new(usher:Worker, getScribe, port:Int) {
-		
+    
+  public function new(usher, getScribe, bind) {
 		this._connected = Signal.trigger();
-		
-		this.socket = new Socket();
-    //TODO: the two steps below should be done by the usher
-		this.socket.bind(new Host('0.0.0.0'), port);
-		this.socket.listen(0x4000);
-							
-		if (#if concurrent usher.step() != WrongThread #else true #end)
-      #if java {
-        @:privateAccess this.socket.server.setSoTimeout(1);
-      }
-      #else
-        this.socket.setBlocking(false);
-      #end
-      
 		this.usher = usher;
 		this.getScribe = getScribe;
+    
+    this.boundPort = bind({ 
+      blocking: 
+          #if concurrent
+            usher.owner != usher
+          #else
+            false
+          #end
+    });
 		
 		this.releaseKeepAlive = usher.owner.retain();
 		
-		usher.work(accept);
-	}
-	
+		usher.work(accept);    
+  }
+  
 	function accept() {
     
 		if (releaseKeepAlive.state != Pending) return;
 		try {
-			//if (usher == usher.owner && currentlyBusy == 0 && Math.random() > .75)
-				//Sys.sleep(.001);
-        
-      //the above is a left over attempt to avoid maxing out a core with busy waiting
-        
-			var client = socket.accept(),
-					scribe = getScribe();
-			
-      var peer = client.peer();
-			//TODO: consider having separate threads for output to reduce back pressure
-			var connection = Connection.wrap( { port: peer.port, host: peer.host.toString() }, client, scribe, scribe);			
-      usher.owner.work(function () _connected.trigger(connection));
+      
+      var scribe = getScribe();
+			var client = boundPort.accept(scribe, scribe);//TODO: consider having separate threads for output to reduce back pressure
+      
+      usher.owner.work(function () _connected.trigger(client));
 		}
 		catch (e:Dynamic) {
-      //if (releaseKeepAlive.state == Pending) {
-        //if (e != 'Blocking' && e != haxe.io.Error.Blocked) 
-          //throw e;
-      //}
+      //do something about this?
 		}
 				
 		usher.work(accept);
 	}
 	
-	public function close() {
-		releaseKeepAlive.perform();
-		
-		_connected.clear();
-		socket.close();
-	}
+	public function close() 
+    if (boundPort != null) {
+      releaseKeepAlive.perform();
+      _connected.clear();
+      boundPort.close();
+      boundPort = null;      
+    }  
+}
+
+class SysServer extends RunloopServer {
+  public function new(usher, getScribe, port:Int) 
+    super(usher, getScribe, function (options) {
+      #if java
+      var s = java.nio.channels.ServerSocketChannel.open();
+      s.bind(new java.net.InetSocketAddress(port));
+      s.configureBlocking(options.blocking);
+      return {
+        close: s.close,
+        accept: function (read, write) {
+          var client = s.accept();
+          client.configureBlocking(false);
+          var peer = client.getRemoteAddress();
+          var endpoint:Endpoint = 1234;
+          return new Connection(
+            new tink.io.java.JavaSource(client, 'Inbound stream from $endpoint', read),
+            new tink.io.java.JavaSink(client, 'Outbound stream to $endpoint', write),
+            'Connection to $endpoint',
+            endpoint,
+            client.close
+          );
+        }
+      }
+      #else
+      var s = new Socket();
+      s.bind(new Host('0.0.0.0'), port);
+      s.listen(0x4000);
+      s.setBlocking(options.blocking);
+      return {
+        close: s.close,
+        accept: function (read, write) {
+          var client = s.accept();
+          var peer = client.peer();
+          
+          return Connection.wrap( { port: peer.port, host: peer.host.toString() }, client, read, write);	
+        }
+      }
+      #end
+    });
   
   static public function bind(port:Int) {
     var workers = [for (i in 0...10) tink.RunLoop.current.createSlave()];
