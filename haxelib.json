@@ -13,8 +13,8 @@
 	"contributors": [
 		"back2dos"
 	],
-	"releasenote": "First haxelib release.",
-	"version": "0.0.0",
+	"releasenote": "Various improvements. Adjust to tink_io changes.",
+	"version": "0.1.0",
 	"url": "http://haxetink.org/tink_tcp",
 	"dependencies": {
 		"tink_io": ""
