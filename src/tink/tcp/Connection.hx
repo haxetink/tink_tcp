@@ -11,32 +11,32 @@ using tink.CoreApi;
 #end
 
 class Connection {
-	public var source(default, null):Source;
-	public var sink(default, null):Sink;
-	public var name(default, null):String;
-	public var peer(default, null):Endpoint;
+  public var source(default, null):Source;
+  public var sink(default, null):Sink;
+  public var name(default, null):String;
+  public var peer(default, null):Endpoint;
   
-	var onClose:Callback<Connection>;
+  var onClose:Callback<Connection>;
   
-	public function new(source, sink, name, peer, onClose) {
-		this.source = source;
-		this.sink = sink;
-		this.name = name;
+  public function new(source, sink, name, peer, onClose) {
+    this.source = source;
+    this.sink = sink;
+    this.name = name;
     this.peer = peer;
-		this.onClose = onClose;
-	}
-	
-	public function toString() 
+    this.onClose = onClose;
+  }
+  
+  public function toString() 
     return name;
-	
-	public function close() {
-		source.close();
-		sink.close();
-		if (onClose != null) {
-			onClose.invoke(this);
-			onClose = null;
-		}
-	}
+  
+  public function close() {
+    source.close();
+    sink.close();
+    if (onClose != null) {
+      onClose.invoke(this);
+      onClose = null;
+    }
+  }
   
   #if (neko || cpp || java)
     static public function wrap(to:Endpoint, s:sys.net.Socket, ?reader, ?writer, ?close:Void->Void):Connection {
@@ -121,11 +121,11 @@ class Connection {
 
 #if sys
 private class SocketInput extends haxe.io.Input {
-	var sockets:Array<Socket>;
+  var sockets:Array<Socket>;
   var counter = 0;
   
-	public function new(s)
-		this.sockets = [s];
+  public function new(s)
+    this.sockets = [s];
     
   function select() {
     var selectTime = counter / 10000;
@@ -144,21 +144,21 @@ private class SocketInput extends haxe.io.Input {
         #end
   }
     
-	override public function readBytes(buffer:haxe.io.Bytes, pos:Int, len:Int):Int {
+  override public function readBytes(buffer:haxe.io.Bytes, pos:Int, len:Int):Int {
     if (counter < 100)
       counter++;
-		var ret = 
-			switch select() {
-				case [s]: s.input.readBytes(buffer, pos, len);
-				default: 0;
-			}
+    var ret = 
+      switch select() {
+        case [s]: s.input.readBytes(buffer, pos, len);
+        default: 0;
+      }
       
     if (ret != 0)
       counter = 0;
           
     return ret;      
   }
-	
+  
   override public function close():Void {
     super.close();
     sockets[0].shutdown(true, false);
@@ -167,11 +167,11 @@ private class SocketInput extends haxe.io.Input {
 }
 
 private class SocketOutput extends haxe.io.Output {
-	var sockets:Array<Socket>;
+  var sockets:Array<Socket>;
   var counter = 0;
   
-	public function new(s)
-		this.sockets = [s];
+  public function new(s)
+    this.sockets = [s];
     
   function select() {
     var selectTime = counter / 10000;
@@ -188,16 +188,16 @@ private class SocketOutput extends haxe.io.Output {
           Socket.select(null, sockets, null, selectTime).write;
         #end
   }
-	
-	override public function writeBytes(buffer:haxe.io.Bytes, pos:Int, len:Int):Int {
+  
+  override public function writeBytes(buffer:haxe.io.Bytes, pos:Int, len:Int):Int {
     if (counter < 100)
       counter++;
     
-		var ret =
-			switch select() {
-				case [s]: s.output.writeBytes(buffer, pos, len);
-				default: 0;
-			}
+    var ret =
+      switch select() {
+        case [s]: s.output.writeBytes(buffer, pos, len);
+        default: 0;
+      }
       
     if (ret != 0)
       counter = 0;
@@ -209,6 +209,6 @@ private class SocketOutput extends haxe.io.Output {
     super.close();
     sockets[0].shutdown(false, true);
   }
-	
+  
 }
 #end

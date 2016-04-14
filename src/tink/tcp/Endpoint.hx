@@ -2,7 +2,7 @@ package tink.tcp;
 
 private typedef EndpointData = {
   public var host(default, null):String;
-	public var port(default, null):Int;
+  public var port(default, null):Int;
 }
 
 @:forward

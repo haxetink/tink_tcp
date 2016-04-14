@@ -44,24 +44,24 @@ interface ServerObject {
 
 #if (tink_runloop && (neko || java || cpp))
 class RunloopServer implements ServerObject {
-	var usher:Worker;
-	var releaseKeepAlive:Task;
-	var getScribe:Void->Worker;
-	var boundPort: {
+  var usher:Worker;
+  var releaseKeepAlive:Task;
+  var getScribe:Void->Worker;
+  var boundPort: {
     function close():Void;
     function accept(reader:Worker, writer:Worker):Connection;
   };
-	var _connected:SignalTrigger<Connection>;
-	
-	public var connected(get, never):Signal<Connection>;
-	
-	inline function get_connected() 
-		return _connected.asSignal();
+  var _connected:SignalTrigger<Connection>;
+  
+  public var connected(get, never):Signal<Connection>;
+  
+  inline function get_connected() 
+    return _connected.asSignal();
     
   public function new(usher, getScribe, bind) {
-		this._connected = Signal.trigger();
-		this.usher = usher;
-		this.getScribe = getScribe;
+    this._connected = Signal.trigger();
+    this.usher = usher;
+    this.getScribe = getScribe;
     
     this.boundPort = bind({ 
       blocking: 
@@ -71,30 +71,30 @@ class RunloopServer implements ServerObject {
             false
           #end
     });
-		
-		this.releaseKeepAlive = usher.owner.retain();
-		
-		usher.work(accept);    
+    
+    this.releaseKeepAlive = usher.owner.retain();
+    
+    usher.work(accept);    
   }
   
-	function accept() {
+  function accept() {
     
-		if (releaseKeepAlive.state != Pending) return;
-		try {
+    if (releaseKeepAlive.state != Pending) return;
+    try {
       
       var scribe = getScribe();
-			var client = boundPort.accept(scribe, scribe);//TODO: consider having separate threads for output to reduce back pressure
+      var client = boundPort.accept(scribe, scribe);//TODO: consider having separate threads for output to reduce back pressure
       
       usher.owner.work(function () _connected.trigger(client));
-		}
-		catch (e:Dynamic) {
+    }
+    catch (e:Dynamic) {
       //do something about this?
-		}
-				
-		usher.work(accept);
-	}
-	
-	public function close() 
+    }
+        
+    usher.work(accept);
+  }
+  
+  public function close() 
     if (boundPort != null) {
       releaseKeepAlive.perform();
       _connected.clear();
@@ -137,7 +137,7 @@ class SysServer extends RunloopServer {
           var client = s.accept();
           var peer = client.peer();
           
-          return Connection.wrap( { port: peer.port, host: peer.host.toString() }, client, read, write);	
+          return Connection.wrap( { port: peer.port, host: peer.host.toString() }, client, read, write);  
         }
       }
       #end
