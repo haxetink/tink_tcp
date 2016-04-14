@@ -1,2 +1,3 @@
+-lib tink_runloop
 -cp tests
--main Main
+-main CompileAll

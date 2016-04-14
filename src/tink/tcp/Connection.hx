@@ -56,8 +56,8 @@ class Connection {
   #elseif nodejs
     static public function wrap(to:Endpoint, c:js.node.net.Socket):Connection {
       return new Connection(
-        Source.ofNodeStream(c, 'Inbound stream from $to'),
-        Sink.ofNodeStream(c, 'Outbound stream to $to'),
+        Source.ofNodeStream('Inbound stream from $to', c),
+        Sink.ofNodeStream('Outbound stream to $to', c),
         '[Connection to $to]',
         to,
         function () {}
