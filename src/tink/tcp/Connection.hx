@@ -70,6 +70,8 @@ class Connection {
     function fail(e:Dynamic) 
       return Failure(Error.reporter(500, 'Failed to establish $name')(e));
     #if (neko || cpp || java)
+      reader = reader.ensure();
+      writer = writer.ensure();
       return reader.work(function () return
         try {
           var s = new Socket();
