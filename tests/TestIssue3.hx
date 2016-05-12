@@ -30,8 +30,9 @@ class TestIssue3 extends BuddySuite {
 						});
             
 						cnx.source.parse(new Parser()).handle(function(o) switch o {
-							case Success(d): 
-								trace(d.data);
+							case Success(d):
+                trace('received ${d.data.length} bytes');
+								//trace(d.data);
 								done();
 							case Failure(f): 
 								fail(f);
