@@ -12,6 +12,7 @@ matrix:
     - haxe: development
     
 install:
+  - haxelib install tink_runloop
   - haxelib install travix
   - haxelib run travix install
 
