@@ -18,6 +18,8 @@ class RunTests {
             new TestIssue3(),
         ], reporter);
 
-        runner.run();
+        runner.run().then(function (_) {
+          Sys.exit(if (runner.allTestsPassed) 0 else 500);
+        });
     }
 }

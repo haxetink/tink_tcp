@@ -16,11 +16,15 @@ class TestIssue3 extends BuddySuite {
 		describe("Issue #3", {
 			it("Read from a web server", function(done) {
 				trace('trying to connect');
-				Connection.tryEstablish({host:'www.google.com', port:80}).handle(function(o) switch o {
+				Connection.tryEstablish({host:'www.example.com', port:80}).handle(function(o) switch o {
 					case Success(cnx):
 						trace('connected');
 
-						("GET /\r\n":Source).pipeTo(cnx.sink).handle(function(o) switch o {
+						([
+                "GET /",
+                "Host: www.example.com",
+                "Connection: Close",
+             ].concat([""]).join("\r\n"):Source).pipeTo(cnx.sink).handle(function(o) switch o {
 							case SinkFailed(e) | SourceFailed(e):
 								fail(e);
 							case SinkEnded:
@@ -29,13 +33,15 @@ class TestIssue3 extends BuddySuite {
 								trace('all written');
 						});
             
-						cnx.source.parse(new Parser()).handle(function(o) switch o {
-							case Success(d):
-                trace('received ${d.data.length} bytes');
-								//trace(d.data);
-								done();
-							case Failure(f): 
-								fail(f);
+						cnx.source.parse(new Parser()).handle(function(o) {
+              switch o {
+                case Success(d):
+                  trace('received ${d.data.length} bytes');
+                  done();
+                case Failure(f): 
+                  fail(f);
+              }
+              cnx.close();
 						});            
 					case Failure(f):
 						fail(f);
