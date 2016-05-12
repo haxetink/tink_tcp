@@ -16,16 +16,9 @@ class TestIssue3 extends BuddySuite {
 		describe("Issue #3", {
 			it("Read from a web server", function(done) {
 				trace('trying to connect');
-				Connection.tryEstablish({host:'www.google.com', port:80}, Worker.get(), Worker.get()).handle(function(o) switch o {
+				Connection.tryEstablish({host:'www.google.com', port:80}).handle(function(o) switch o {
 					case Success(cnx):
 						trace('connected');
-						cnx.source.parse(new Parser()).handle(function(o) switch o {
-							case Success(d): 
-								trace(d.data);
-								done();
-							case Failure(f): 
-								fail(f);
-						});
 
 						("GET /\r\n":Source).pipeTo(cnx.sink).handle(function(o) switch o {
 							case SinkFailed(e) | SourceFailed(e):
@@ -35,10 +28,18 @@ class TestIssue3 extends BuddySuite {
 							case AllWritten:
 								trace('all written');
 						});
+            
+						cnx.source.parse(new Parser()).handle(function(o) switch o {
+							case Success(d): 
+								trace(d.data);
+								done();
+							case Failure(f): 
+								fail(f);
+						});            
 					case Failure(f):
 						fail(f);
 				});
-				haxe.Timer.delay(function(){}, 2000);
+				//haxe.Timer.delay(function(){}, 2000);
 			});
 		});
 	}
