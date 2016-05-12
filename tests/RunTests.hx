@@ -19,7 +19,7 @@ class RunTests {
         ], reporter);
 
         runner.run().then(function (_) {
-          Sys.exit(if (runner.allTestsPassed) 0 else 500);
+          Sys.exit(if (runner.failed()) 500 else 0);
         });
     }
 }
