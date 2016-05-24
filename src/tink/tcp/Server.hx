@@ -128,7 +128,7 @@ class SysServer extends RunloopServer {
       }
       #else
       var s = new Socket();
-      s.bind(new Host('0.0.0.0'), port);
+      s.bind(new Host('0.0.0.0'), port);//TODO: find out how to bind for any address
       s.listen(0x4000);
       s.setBlocking(options.blocking);
       return {
