@@ -1,4 +1,5 @@
 # Tink TCP
+[![Gitter](https://img.shields.io/gitter/room/nwjs/nw.js.svg?maxAge=2592000)](https://gitter.im/haxetink/public)
 
 This library offers a cross platform TCP API, that is based on tink_io's asynchronous streams. As of now it works only for nodejs and neko (and quite possibly Java and C++), but the current state shows that it can be implemented on any platform that exposes TCP capabilities in some fashion.
 
