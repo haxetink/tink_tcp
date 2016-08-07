@@ -142,7 +142,7 @@ private class SocketInput extends haxe.io.Input {
           sockets;
         }
         #else
-          Socket.select(sockets, null, null, selectTime).read;
+          Socket.select(sockets, [], [], selectTime).read;
         #end
   }
     
@@ -187,7 +187,7 @@ private class SocketOutput extends haxe.io.Output {
           sockets;
         }
         #else
-          Socket.select(null, sockets, null, selectTime).write;
+          Socket.select([], sockets, [], selectTime).write;
         #end
   }
   
