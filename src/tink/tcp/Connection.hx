@@ -130,9 +130,9 @@ private class SocketInput extends haxe.io.Input {
     this.sockets = [s];
     
   function select() {
-	  #if concurrent
+    #if concurrent
     var selectTime = counter / 10000;
-	  #else
+    #else
     var selectTime = counter / 50000;
     #end
 
@@ -180,9 +180,9 @@ private class SocketOutput extends haxe.io.Output {
     this.sockets = [s];
     
   function select() {
-	  #if concurrent
+    #if concurrent
     var selectTime = counter / 10000;
-	  #else
+    #else
     var selectTime = counter / 50000;
     #end
     return  
