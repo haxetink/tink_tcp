@@ -16,6 +16,7 @@ class RunTests {
 
         var runner = new buddy.SuitesRunner([
             new TestIssue3(),
+            new TestTlsConnection(),
         ], reporter);
 
         runner.run().then(function (_) {

@@ -2,6 +2,7 @@ package;
 
 import haxe.io.*;
 import tink.io.*;
+import tink.io.StreamParser;
 import tink.tcp.*;
 import buddy.*;
 
@@ -9,13 +10,13 @@ using buddy.Should;
 using StringTools;
 using tink.CoreApi;
 
-class TestIssue3 extends BuddySuite {
+class TestTlsConnection extends BuddySuite {
   
   public function new() {
-    describe("Issue #3", {
+    describe("Tls connection", {
       it("Read from a web server", function(done) {
         trace('trying to connect');
-        Connection.tryEstablish({host:'www.example.com', port:80}).handle(function(o) switch o {
+        Connection.tryEstablish({host:'www.example.com', port:443}).handle(function(o) switch o {
           case Success(cnx):
             trace('connected');
 
@@ -50,4 +51,3 @@ class TestIssue3 extends BuddySuite {
     });
   }
 }
-

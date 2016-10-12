@@ -68,7 +68,7 @@ class Connection {
   static public function tryEstablish(to:Endpoint, ?reader:Worker, ?writer:Worker):Surprise<Connection, Error> {
     var name = '[Connection to $to]';
     function fail(e:Dynamic) 
-      return Failure(Error.reporter(500, 'Failed to establish $name')(e));
+      return Failure(Error.reporter(500, 'Failed to establish $name $e')(e));
     #if (neko || cpp || java)
       reader = reader.ensure();
       writer = writer.ensure();
@@ -88,10 +88,16 @@ class Connection {
         
         function handleConnectError(e) cb(fail(e));
         
-        c = js.node.Net.createConnection(to.port, to.host, function () {
+        function done() {
           c.removeListener('error', handleConnectError);
           cb(Success(wrap(to, c)));
-        });
+        }
+        
+        c =
+          if (to.secure)
+            js.node.Tls.connect(to.port, to.host, done)
+          else
+            js.node.Net.createConnection(to.port, to.host, done);
         
         c.once('error', handleConnectError);
       });
