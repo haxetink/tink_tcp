@@ -149,8 +149,12 @@ private class SocketInput extends haxe.io.Input {
     this.sockets = [s];
     
   function select() {
+    #if concurrent
     var selectTime = counter / 10000;
-    
+    #else
+    var selectTime = counter / 50000;
+    #end
+
     return  
       if (counter <= 10)
         sockets;
@@ -161,7 +165,7 @@ private class SocketInput extends haxe.io.Input {
           sockets;
         }
         #else
-          Socket.select(sockets, null, null, selectTime).read;
+          Socket.select(sockets, [], [], selectTime).read;
         #end
   }
     
@@ -195,7 +199,11 @@ private class SocketOutput extends haxe.io.Output {
     this.sockets = [s];
     
   function select() {
+    #if concurrent
     var selectTime = counter / 10000;
+    #else
+    var selectTime = counter / 50000;
+    #end
     return  
       if (counter <= 10)
         sockets;
@@ -206,7 +214,7 @@ private class SocketOutput extends haxe.io.Output {
           sockets;
         }
         #else
-          Socket.select(null, sockets, null, selectTime).write;
+          Socket.select([], sockets, [], selectTime).write;
         #end
   }
   
