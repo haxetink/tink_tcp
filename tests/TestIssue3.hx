@@ -45,9 +45,9 @@ class TestIssue3 extends BuddySuite {
           case Failure(f):
             fail(f);
         });
-        //haxe.Timer.delay(function(){}, 2000);
       });
     });
   }
+  
 }
 

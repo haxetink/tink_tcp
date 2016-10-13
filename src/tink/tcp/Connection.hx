@@ -40,7 +40,9 @@ class Connection {
   
   #if (neko || cpp || java)
     static public function wrap(to:Endpoint, s:sys.net.Socket, ?reader, ?writer, ?close:Void->Void):Connection {
+      #if !java
       s.setBlocking(false);
+      #end
       return
         new Connection(
           Source.ofInput('Inbound stream from $to', new SocketInput(s), reader),
@@ -74,7 +76,16 @@ class Connection {
       writer = writer.ensure();
       return reader.work(function () return
         try {
-          var s = new Socket();
+          var s = 
+            if (to.secure)
+              #if java
+                cast new java.net.SslSocket()
+              #else
+                cast new sys.ssl.Socket()
+              #end
+            else
+              new Socket();
+              
           s.connect(new sys.net.Host(to.host), to.port);
           Success(wrap(to, s, reader, writer));
         }

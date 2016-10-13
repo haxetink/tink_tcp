@@ -10,19 +10,18 @@ using buddy.Should;
 using StringTools;
 using tink.CoreApi;
 
-class TestTlsConnection extends BuddySuite {
+class TestSecureConnection extends BuddySuite {
   
   public function new() {
-    describe("Tls connection", {
+    describe("Secure connection", {
       it("Read from a web server", function(done) {
         trace('trying to connect');
-        Connection.tryEstablish({host:'www.example.com', port:443}).handle(function(o) switch o {
+        Connection.tryEstablish({host:'encrypted.google.com', port:443}).handle(function(o) switch o {
           case Success(cnx):
             trace('connected');
-
             ([
                 "GET /",
-                "Host: www.example.com",
+                "Host: encrypted.google.com",
                 "Connection: Close",
              ].concat([""]).join("\r\n"):Source).pipeTo(cnx.sink).handle(function(o) switch o {
               case SinkFailed(e) | SourceFailed(e):
@@ -46,7 +45,6 @@ class TestTlsConnection extends BuddySuite {
           case Failure(f):
             fail(f);
         });
-        //haxe.Timer.delay(function(){}, 2000);
       });
     });
   }
