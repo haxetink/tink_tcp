@@ -80,8 +80,10 @@ class Connection {
             if (to.secure)
               #if java
                 cast new java.net.SslSocket()
-              #else
+              #elseif (haxe_ver > 3.210)
                 cast new sys.ssl.Socket()
+              #else
+                throw 'Secure socket not available'
               #end
             else
               new Socket();
