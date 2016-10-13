@@ -70,7 +70,7 @@ class Connection {
   static public function tryEstablish(to:Endpoint, ?reader:Worker, ?writer:Worker):Surprise<Connection, Error> {
     var name = '[Connection to $to]';
     function fail(e:Dynamic) 
-      return Failure(Error.reporter(500, 'Failed to establish $name $e')(e));
+      return Failure(Error.reporter(500, 'Failed to establish $name')(e));
     #if (neko || cpp || java)
       reader = reader.ensure();
       writer = writer.ensure();
