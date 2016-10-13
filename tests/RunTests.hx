@@ -16,6 +16,7 @@ class RunTests {
 
         var runner = new buddy.SuitesRunner([
             new TestIssue3(),
+            #if (haxe_ver > 3.210) new TestSecureConnection(), #end
         ], reporter);
 
         runner.run().then(function (_) {

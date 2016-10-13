@@ -40,7 +40,9 @@ class Connection {
   
   #if (neko || cpp || java)
     static public function wrap(to:Endpoint, s:sys.net.Socket, ?reader, ?writer, ?close:Void->Void):Connection {
+      #if !java
       s.setBlocking(false);
+      #end
       return
         new Connection(
           Source.ofInput('Inbound stream from $to', new SocketInput(s), reader),
@@ -74,7 +76,18 @@ class Connection {
       writer = writer.ensure();
       return reader.work(function () return
         try {
-          var s = new Socket();
+          var s = 
+            if (to.secure)
+              #if java
+                cast new java.net.SslSocket()
+              #elseif (haxe_ver > 3.210)
+                cast new sys.ssl.Socket()
+              #else
+                throw 'Secure socket not available'
+              #end
+            else
+              new Socket();
+              
           s.connect(new sys.net.Host(to.host), to.port);
           Success(wrap(to, s, reader, writer));
         }
@@ -88,10 +101,16 @@ class Connection {
         
         function handleConnectError(e) cb(fail(e));
         
-        c = js.node.Net.createConnection(to.port, to.host, function () {
+        function done() {
           c.removeListener('error', handleConnectError);
           cb(Success(wrap(to, c)));
-        });
+        }
+        
+        c =
+          if (to.secure)
+            js.node.Tls.connect(to.port, to.host, done)
+          else
+            js.node.Net.createConnection(to.port, to.host, done);
         
         c.once('error', handleConnectError);
       });
