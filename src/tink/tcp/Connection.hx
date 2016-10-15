@@ -10,17 +10,20 @@ using tink.CoreApi;
   import sys.net.Socket;
 #end
 
-class Connection {
-  public var source(default, null):Source;
-  public var sink(default, null):Sink;
+class Connection implements Duplex {
+  public var source(get, never):Source;
+  public var sink(get, never):Sink;
   public var name(default, null):String;
   public var peer(default, null):Endpoint;
+  
+  var _source:Source;
+  var _sink:Sink;
   
   var onClose:Callback<Connection>;
   
   public function new(source, sink, name, peer, onClose) {
-    this.source = source;
-    this.sink = sink;
+    this._source = source;
+    this._sink = sink;
     this.name = name;
     this.peer = peer;
     this.onClose = onClose;
@@ -37,6 +40,9 @@ class Connection {
       onClose = null;
     }
   }
+  
+  inline function get_source() return _source;
+  inline function get_sink() return _sink;
   
   #if (neko || cpp || java)
     static public function wrap(to:Endpoint, s:sys.net.Socket, ?reader, ?writer, ?close:Void->Void):Connection {
