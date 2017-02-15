@@ -2,22 +2,24 @@ package tink.tcp;
 
 import haxe.DynamicAccess;
 import haxe.io.Bytes;
-import tink.io.*;
+import tink.io.Worker;
 
+using tink.io.Source;
+using tink.io.Sink;
 using tink.CoreApi;
 
 #if sys
   import sys.net.Socket;
 #end
 
-class Connection implements Duplex {
-  public var source(get, never):Source;
-  public var sink(get, never):Sink;
+class Connection {
+  public var source(get, never):RealSource;
+  public var sink(get, never):RealSink;
   public var name(default, null):String;
   public var peer(default, null):Endpoint;
   
-  var _source:Source;
-  var _sink:Sink;
+  var _source:RealSource;
+  var _sink:RealSink;
   
   var onClose:Callback<Connection>;
   
@@ -33,8 +35,8 @@ class Connection implements Duplex {
     return name;
   
   public function close() {
-    source.close();
-    sink.close();
+  //   source.close();
+  //   sink.close();
     if (onClose != null) {
       onClose.invoke(this);
       onClose = null;
@@ -73,7 +75,7 @@ class Connection implements Duplex {
     }
   #end
   
-  static public function tryEstablish(to:Endpoint, ?reader:Worker, ?writer:Worker):Surprise<Connection, Error> {
+  static public function tryEstablish(to:Endpoint, ?reader:Worker, ?writer:Worker):Promise<Connection> {
     var name = '[Connection to $to]';
     function fail(e:Dynamic) 
       return Failure(Error.reporter(500, 'Failed to establish $name')(e));
@@ -131,8 +133,8 @@ class Connection implements Duplex {
         cnx = tryEstablish(to, reader, writer);
     return 
       new Connection(
-        cnx >> function (c:Connection) return c.source,
-        cnx >> function (c:Connection) return c.sink,
+        cnx.next(function (c):RealSource return c.source),
+        cnx.next(function (c):RealSink return c.sink),
         name,
         to,
         function () {
