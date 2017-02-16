@@ -36,7 +36,7 @@ class Connection {
   
   public function close() {
   //   source.close();
-  //   sink.close();
+    sink.end();
     if (onClose != null) {
       onClose.invoke(this);
       onClose = null;
