@@ -1,0 +1,3 @@
+# @install: echo local
+-D tink_chunk=0.1.0
+-cp ../tink_chunk/src

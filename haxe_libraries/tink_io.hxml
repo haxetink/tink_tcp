@@ -1,0 +1,6 @@
+# @install: echo local
+-D tink_io=0.0.0
+-cp ../tink_io/src
+
+-lib tink_chunk
+-lib tink_streams

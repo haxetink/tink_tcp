@@ -1,0 +1,5 @@
+# @install: echo local
+-D tink_streams=0.1.0
+-cp ../tink_streams/src
+
+-lib tink_core
