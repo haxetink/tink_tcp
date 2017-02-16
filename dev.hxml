@@ -1,2 +1,4 @@
 -lib tink_tcp
+-lib hxnodejs
 tests.hxml
+-js test.js

@@ -17,15 +17,21 @@ abstract Endpoint from { host: String, port: Int, ?secure:Bool } {
   @:to function toString():String;
 }
 
-@:structInit class Incoming {
+typedef Incoming = {
   var from(default, never):Endpoint;
   var to(default, never):Endpoint;
   var stream(default, never):RealSource;
 }
 
+typedef Outgoing = {
+  var stream(default, never):IdealSource;
+  @:optional var allowHalfOpen(default, never):Bool;
+}
+
 abstract Handler {
-  function handle(incoming:Incoming):Future<IdealSource>;
-  @:from static private function ofFunction(f:Incoming->Future<IdealSource>)
+  function handle(incoming:Incoming):Future<Outgoing>;
+  @:from static private function ofAsync(f:Incoming->Future<Outgoing>):Handler;
+  @:from static private function ofSync(f:Incoming->Outgoing):Handler;
 }
 
 interface OpenPort {
@@ -34,7 +40,7 @@ interface OpenPort {
 }
 
 interface Connector {
-  function connect(to:Endpoint, send:IdealSource):Promise<Incoming>;
+  function connect(to:Endpoint, handler:Handler):Promise<Noise>;
 }
 
 interface Acceptor {
