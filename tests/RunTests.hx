@@ -2,8 +2,8 @@ package;
 
 import tink.tcp.*;
 import tink.tcp.nodejs.NodejsConnector;
+import tink.tcp.OpenPort;
 
-using tink.io.Source;
 using tink.io.Sink;
 using tink.CoreApi;
 

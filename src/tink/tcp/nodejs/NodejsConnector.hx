@@ -13,7 +13,8 @@ class NodejsConnector {
         handler.handle({ 
           stream: new Error('${e.code} - Failed connecting to $to because ${e.message}'), 
           from: to, 
-          to: { host: '', port: -1 } 
+          to: { host: '', port: -1 },
+          closed: new Future(function (_) return null),
         }).handle(function () cb(Success(Noise)))
       );
       
@@ -28,7 +29,7 @@ class NodejsConnector {
 
         var out = 'Outgoing stream of connection to $to';
 
-        handler.handle({ from: to, to: local, stream: stream }).handle(function (outgoing) {
+        handler.handle({ from: to, to: local, stream: stream, closed: sourceClosed }).handle(function (outgoing) {
           outgoing.stream.pipeTo(
             Sink.ofNodeStream(out, native), { end: true }
           ).handle(function (o) {

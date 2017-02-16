@@ -34,7 +34,12 @@ abstract Handler {
   @:from static private function ofSync(f:Incoming->Outgoing):Handler;
 }
 
-interface OpenPort {
+class OpenPort {
+  
+  var queued(default, null):Int;
+  var running(default, null):Int;
+  var maxRunning(default, null):Int = 0x100000;
+
   function setHandler(handler:Handler):Promise<Noise>;
   function shutdown(?hard:Bool):Promise<Bool>;
 }
