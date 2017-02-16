@@ -1,34 +1,43 @@
-# Tink TCP
 [![Gitter](https://img.shields.io/gitter/room/nwjs/nw.js.svg?maxAge=2592000)](https://gitter.im/haxetink/public)
 
-This library offers a cross platform TCP API, that is based on tink_io's asynchronous streams. As of now it works only for nodejs and neko (and quite possibly Java and C++), but the current state shows that it can be implemented on any platform that exposes TCP capabilities in some fashion.
+# Tink TCP
 
-The API is currently very lean:
+This library offers a cross platform TCP API, that is based on tink_io's pure asynchronous streams.
 
 ```haxe
 package tink.tcp;
 
-class Connection {
-	public var source(default, null):tink.io.Source;
-	public var sink(default, null):tink.io.Sink;
-	public var name(default, null):String;
-  
-  static public function tryEstablish(endpoint:Endpoint, ?reader:tink.io.Worker, ?writer:tink.io.Worker):Suprise<Connection, Error>;
-  static public function establish(endpoint:Endpoint, ?reader:tink.io.Worker, ?writer:tink.io.Worker):Connection;
-}
+using tink.io.Source;//defines IdealSource and RealSource
 
-abstract Endpoint from { host: String, port: Int } {
+abstract Endpoint from { host: String, port: Int, ?secure:Bool } {
   public var host(get, never):String;
   public var port(get, never):Int;
+  public var secure(get, never):Bool;
   @:from static function fromPort(port:Int):Endpoint;
   @:to function toString():String;
 }
 
-abstract Server {
-  public var connected(get, never):Signal<Connection>;
-  public function close():Void;
-  static public function bind(port:Int):Surprise<Server, Error>;
+@:structInit class Incoming {
+  var from(default, never):Endpoint;
+  var to(default, never):Endpoint;
+  var stream(default, never):RealSource;
+}
+
+abstract Handler {
+  function handle(incoming:Incoming):Future<IdealSource>;
+  @:from static private function ofFunction(f:Incoming->Future<IdealSource>)
+}
+
+interface OpenPort {
+  function setHandler(handler:Handler):Promise<Noise>;
+  function shutdown(?hard:Bool):Promise<Bool>;
+}
+
+interface Connector {
+  function connect(to:Endpoint, send:IdealSource):Promise<Incoming>;
+}
+
+interface Acceptor {
+  function bind(?port:Int):Promise<OpenPort>;
 }
 ```
-
-The difference between the two methods to establish connections is that the latter will simply pretend it is connected and give you errors when you try to read from the source or write to the sink. The main use of tryEstablish is to determine if a connection to some port is possible, without wanting to do any IO. On nodejs, the workers are currently not actually used by the current implementation. Note that for binding ports on neko, java and cpp, this library will require you to add `-lib tink_runloop`. Use `-D concurrent` to use multiple threads.
