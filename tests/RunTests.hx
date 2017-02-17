@@ -2,6 +2,7 @@ package;
 
 import tink.tcp.*;
 import tink.tcp.nodejs.NodejsConnector;
+import tink.tcp.nodejs.NodejsAcceptor;
 import tink.tcp.OpenPort;
 
 using tink.io.Sink;
