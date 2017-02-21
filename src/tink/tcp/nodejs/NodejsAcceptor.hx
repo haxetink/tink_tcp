@@ -7,6 +7,8 @@ using tink.io.Sink;
 using tink.CoreApi;
 
 class NodejsAcceptor {
+  static public var inst(default, null):NodejsAcceptor = new NodejsAcceptor();
+  function new() {}
   public function bind(?port:Int):Promise<OpenPort> 
     return Future.async(function (cb) {
       

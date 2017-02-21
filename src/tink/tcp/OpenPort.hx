@@ -79,6 +79,7 @@ class OpenPort {
     accepted.handle(handleSession);
   }
   var running:Array<Session> = [];
+  
   function handleSession(s:Session) 
     switch this.scheduler.run(function () return 
       this.handler.flatMap(function (handler) {
@@ -113,23 +114,28 @@ class OpenPort {
     }
 
   public function setHandler(handler:Handler) 
-    switch [trigger, handler] {
-      case [null, null]:
-        this.handler = this.trigger = Future.trigger();
-      case [null, v]:
-        this.handler = Future.sync(v);
-      case [v, null]:
-      case [t, h]:
-        this.trigger = null;
-        t.trigger(h);
-    }
+    return 
+      if (running == null) true; 
+      else {
+        switch [trigger, handler] {
+          case [null, null]:
+            this.handler = this.trigger = Future.trigger();
+          case [null, v]:
+            this.handler = Future.sync(v);
+          case [v, null]:
+          case [t, h]:
+            this.trigger = null;
+            t.trigger(h);
+        }
+        false;
+      }
 
   public function shutdown(?hard:Bool):Promise<Bool> {
     this.scheduler = { run: function (_) return None, clear: function () {} };
     if (hard) {
       for (s in this.running)
         s.destroy();
-      this.running = [];
+      this.running = null;
     }
     return true;
   }
