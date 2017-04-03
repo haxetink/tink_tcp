@@ -1,26 +1,13 @@
 package;
 
-import buddy.*;
-
-//class RunTests implements Buddy<[
-	//TestIssue3,
-//]> {}
-
-//TODO: figure out a way to make the above work
-
-import buddy.reporting.ConsoleReporter;
+import tink.testrunner.*;
+import tink.unit.*;
 
 class RunTests {
     public static function main() {
-        var reporter = new ConsoleReporter();
-
-        var runner = new buddy.SuitesRunner([
+        Runner.run(TestBatch.make([
             new TestIssue3(),
-            #if (haxe_ver > 3.210) new TestSecureConnection(), #end
-        ], reporter);
-
-        runner.run().then(function (_) {
-          Sys.exit(if (runner.failed()) 500 else 0);
-        });
+            new TestSecureConnection(),
+        ])).handle(Runner.exit);
     }
 }

@@ -1,3 +1,6 @@
 -lib buddy
 -main RunTests
 -cp tests
+-dce full
+
+-lib tink_unittest
