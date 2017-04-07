@@ -7,7 +7,7 @@ class RunTests {
     public static function main() {
         Runner.run(TestBatch.make([
             new TestIssue3(),
-            new TestSecureConnection(),
+            #if (haxe_ver > 3.210) new TestSecureConnection(), #end
         ])).handle(Runner.exit);
     }
 }
