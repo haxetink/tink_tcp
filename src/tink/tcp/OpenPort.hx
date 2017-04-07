@@ -63,7 +63,7 @@ typedef Scheduler = {
 
 class OpenPort {
 
-  public var port(default, null):Int;
+  public var port(default, null):Int; // TODO: use enum to represent, it can be fd, unix socket, etc
   var _shutdown:Void->Promise<Noise>;
   var trigger:FutureTrigger<Handler> = Future.trigger();
   var handler:Future<Handler>;
