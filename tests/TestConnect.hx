@@ -1,27 +1,27 @@
 package;
 
-import haxe.io.*;
 import tink.io.*;
 import tink.io.PipeResult;
 import tink.tcp.*;
 import tink.tcp.nodejs.*;
-import tink.unit.*;
-import tink.testrunner.*;
-using StringTools;
 using tink.CoreApi;
 
 @:asserts
-class TestSecureConnection {
+class TestConnect {
   
   public function new() {}
   
-  @:describe("Secure connection")
-  public function test() {
+  @:describe('Read from a web server')
+  #if ((haxe_ver > 3.210) || nodejs)
+  @:variant('https' ('encrypted.google.com', 443))
+  #end
+  @:variant('http' ('www.example.com', 80))
+  public function connect(host:String, port:Int) {
     
-    NodejsConnector.connect({host:'encrypted.google.com', port:443}, function(i:Incoming):Outgoing {
+    NodejsConnector.connect({host: host, port: port}, function(i:Incoming):Outgoing {
       i.stream.pipeTo(Sink.blackhole).handle(function(o) asserts.assert(o == AllWritten));
       return {
-        stream: 'GET / HTTP/1.1\r\nHost: example.com\r\nConnection: close\r\n\r\n',
+        stream: 'GET / HTTP/1.1\r\nHost: $host\r\nConnection: close\r\n\r\n',
         allowHalfOpen: true
       }
     }).handle(function(p) {
@@ -33,3 +33,4 @@ class TestSecureConnection {
   }
   
 }
+
