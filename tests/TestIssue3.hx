@@ -2,51 +2,35 @@ package;
 
 import haxe.io.*;
 import tink.io.*;
+import tink.io.PipeResult;
 import tink.tcp.*;
-import buddy.*;
-
-using buddy.Should;
+import tink.tcp.nodejs.*;
+import tink.unit.*;
+import tink.testrunner.*;
 using StringTools;
 using tink.CoreApi;
 
-class TestIssue3 extends BuddySuite {
+@:asserts
+@:name("Issue #3")
+class TestIssue3{
   
-  public function new() {
-    describe("Issue #3", {
-      it("Read from a web server", function(done) {
-        trace('trying to connect');
-        Connection.tryEstablish({host:'www.example.com', port:80}).handle(function(o) switch o {
-          case Success(cnx):
-            trace('connected');
-
-            ([
-                "GET /",
-                "Host: www.example.com",
-                "Connection: Close",
-             ].concat([""]).join("\r\n"):Source).pipeTo(cnx.sink).handle(function(o) switch o {
-              case SinkFailed(e) | SourceFailed(e):
-                fail(e);
-              case SinkEnded:
-                trace(new Error('sink ended'));
-              case AllWritten:
-                trace('all written');
-            });
-            
-            cnx.source.all().handle(function(res) {
-              switch res {
-                case Success(d):
-                  trace('received ${d.length} bytes');
-                  done();
-                case Failure(f): 
-                  fail(f);
-              }
-              cnx.close();
-            });            
-          case Failure(f):
-            fail(f);
-        });
-      });
+  public function new() {}
+  
+  @:describe("Read from a web server")
+  public function test() {
+    
+    NodejsConnector.connect({host:'www.example.com', port:80}, function(i:Incoming):Outgoing {
+      i.stream.pipeTo(Sink.blackhole).handle(function(o) asserts.assert(o == AllWritten));
+      return {
+        stream: 'GET / HTTP/1.1\r\nHost: example.com\r\nConnection: close\r\n\r\n',
+        allowHalfOpen: true
+      }
+    }).handle(function(p) {
+      asserts.assert(p.isSuccess());
+      asserts.done();
     });
+    
+    return asserts;
   }
   
 }

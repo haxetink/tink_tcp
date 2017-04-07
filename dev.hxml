@@ -1,4 +1,6 @@
--lib tink_tcp
--lib hxnodejs
 tests.hxml
--js test.js
+
+-js bin/neko/tests.n
+
+-lib travix
+-lib tink_tcp

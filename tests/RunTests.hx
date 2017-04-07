@@ -1,28 +1,13 @@
 package;
 
-import tink.tcp.*;
-import tink.tcp.nodejs.NodejsConnector;
-import tink.tcp.nodejs.NodejsAcceptor;
-import tink.tcp.OpenPort;
-
-using tink.io.Sink;
-using tink.CoreApi;
-
+import tink.testrunner.*;
+import tink.unit.*;
 
 class RunTests {
-  static function main() {
-
-    NodejsConnector.connect({ host: 'example.com', port: 80 }, function (i:Incoming):Outgoing {
-      trace(i.from);
-      trace(i.to);
-      //i.stream.all().handle(function (o) trace(Std.string(o)));
-      i.stream.pipeTo(Sink.ofNodeStream('stdout', js.Node.process.stdout)).handle(function (o) trace(Std.string(o)));
-       
-      return {
-        stream: 'GET / HTTP/1.1\r\nHost: example.com\r\nConnection: close\r\n\r\n',
-        allowHalfOpen: true,
-      };
-    }).handle(function (o) trace(Std.string(o)));
-    
-  }
+    public static function main() {
+        Runner.run(TestBatch.make([
+            new TestIssue3(),
+            // #if (haxe_ver > 3.210) new TestSecureConnection(), #end
+        ])).handle(Runner.exit);
+    }
 }
