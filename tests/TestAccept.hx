@@ -25,21 +25,21 @@ class TestAccept {
         port.trigger(openPort.port);
         openPort.setHandler(function(i:Incoming):Outgoing {
           var chunk = Chunk.EMPTY;
-          var stream:IdealSource = i.stream.chunked()
+          var stream = i.stream.chunked()
             .forEach(function(c) {
               chunk = chunk & c;
               return if(chunk.length < 5) Resume else Finish;
             })
-            .map(function(c):Stream<Chunk, Noise> return switch c {
-              case Halted(rest):
-                Stream.single((('Hello, ' + chunk.toString() + '!'):Chunk));
+            .map(function(c):IdealSource return switch c {
+              case Halted(_):
+                'Hello, ' + chunk.toString() + '!';
               case Depleted:
                 asserts.fail('Unexpected depletion');
-                Stream.single(('Unexpected depletion':Chunk));
+                'Unexpected depletion';
               case Failed(e):
                 asserts.fail(e);
-                Stream.single((e.toString():Chunk));
-            }).flatten();
+                e.toString();
+            });
             
           return {
             stream: stream,
