@@ -1,13 +1,9 @@
 package;
 
-import haxe.io.*;
 import tink.io.*;
 import tink.io.PipeResult;
 import tink.tcp.*;
 import tink.tcp.nodejs.*;
-import tink.unit.*;
-import tink.testrunner.*;
-using StringTools;
 using tink.CoreApi;
 
 @:asserts

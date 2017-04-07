@@ -2,37 +2,31 @@ package;
 
 import haxe.io.*;
 import tink.io.*;
-import tink.io.Pipe;
+import tink.io.PipeResult;
 import tink.tcp.*;
+import tink.tcp.nodejs.*;
 import tink.unit.*;
 import tink.testrunner.*;
 using StringTools;
 using tink.CoreApi;
 
+@:asserts
 class TestSecureConnection {
   
   public function new() {}
   
   @:describe("Secure connection")
-  public function test(asserts:AssertionBuffer) {
-    Connection.tryEstablish({host:'encrypted.google.com', port:443}).handle(function(o) switch o {
-      case Success(cnx):
-        ([
-            "GET /",
-            "Host: www.example.com",
-            "Connection: Close",
-            "",
-          ].join("\r\n"):Source).pipeTo(cnx.sink)
-            .handle(function(o) asserts.assert(o == AllWritten));
-        
-        cnx.source.all().handle(function(res) {
-          asserts.assert(res.isSuccess());
-          asserts.done();
-          cnx.close();
-        });        
-      case Failure(e):
-        asserts.emit(new Assertion(Failure(e.toString()), 'Open connection'));
-        asserts.done();
+  public function test() {
+    
+    NodejsConnector.connect({host:'encrypted.google.com', port:443}, function(i:Incoming):Outgoing {
+      i.stream.pipeTo(Sink.blackhole).handle(function(o) asserts.assert(o == AllWritten));
+      return {
+        stream: 'GET / HTTP/1.1\r\nHost: example.com\r\nConnection: close\r\n\r\n',
+        allowHalfOpen: true
+      }
+    }).handle(function(p) {
+      asserts.assert(p.isSuccess());
+      asserts.done();
     });
     
     return asserts;
