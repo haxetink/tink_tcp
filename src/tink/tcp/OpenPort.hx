@@ -63,6 +63,7 @@ typedef Scheduler = {
 
 class OpenPort {
 
+  public var port(default, null):Int;
   var _shutdown:Void->Promise<Noise>;
   var trigger:FutureTrigger<Handler> = Future.trigger();
   var handler:Future<Handler>;
@@ -70,7 +71,8 @@ class OpenPort {
   
   static function justRun<R>(f:Void->Future<R>) return Some(f());
 
-  public function new(accepted:Signal<Session>, ?scheduler:Scheduler) {
+  public function new(accepted:Signal<Session>, port:Int, ?scheduler:Scheduler) {
+    this.port = port;
     this.handler = trigger;
     this.scheduler = switch scheduler {
       case null: { run: justRun, clear: function () {} };

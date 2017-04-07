@@ -13,7 +13,7 @@ class NodejsAcceptor {
     return Future.async(function (cb) {
       
       var s = new SignalTrigger<Session>();
-      js.node.Net.createServer({ allowHalfOpen: true }, function (cnx) {
+      var server = js.node.Net.createServer({ allowHalfOpen: true }, function (cnx) {
 
         var from:Endpoint = {
           host: cnx.remoteAddress,
@@ -33,10 +33,12 @@ class NodejsAcceptor {
           incoming: { from: from, to: to, stream: stream, closed: closed },
           destroy: function () cnx.destroy()
         });
-      }).on('error', function (e:{ code:String, message:String }) cb(
+      });
+      
+      server.on('error', function (e:{ code:String, message:String }) cb(
         Failure(new Error('${e.code} - Failed bindg port $port because ${e.message}'))
       )).on('listening', function () cb(
-        Success(new OpenPort(s))
+        Success(new OpenPort(s, server.address().port))
       ))
       .listen(port);
     });

@@ -19,7 +19,7 @@ class TestConnect {
   public function connect(host:String, port:Int) {
     
     NodejsConnector.connect({host: host, port: port}, function(i:Incoming):Outgoing {
-      i.stream.pipeTo(Sink.blackhole).handle(function(o) asserts.assert(o == AllWritten));
+      i.stream.pipeTo(Sink.BLACKHOLE).handle(function(o) asserts.assert(o == AllWritten));
       return {
         stream: 'GET / HTTP/1.1\r\nHost: $host\r\nConnection: close\r\n\r\n',
         allowHalfOpen: true
