@@ -35,13 +35,16 @@ class NodejsAcceptor {
         });
       });
       
-      trace(port);
+      
       server.on('error', function (e:{ code:String, message:String }) cb(
-        Failure(new Error('${e.code} - Failed bindg port $port because ${e.message}'))
+        Failure(new Error('${e.code} - Failed binding port $port because ${e.message}'))
       )).on('listening', function () cb(
         Success(new OpenPort(s, server.address().port))
       ))
-      .listen(port);
+      .listen(switch port {
+        case null: 0;
+        case v: v;
+      });
     });
 
 }
