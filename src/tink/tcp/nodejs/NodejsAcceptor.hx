@@ -40,7 +40,10 @@ class NodejsAcceptor {
       )).on('listening', function () cb(
         Success(new OpenPort(s, server.address().port))
       ))
-      .listen(port);
+      .listen(switch port {
+        case null: 0;
+        case v: v;
+      });
     });
 
 }
