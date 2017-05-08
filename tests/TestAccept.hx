@@ -51,6 +51,7 @@ class TestAccept {
     });
     
     port.handle(function(port) {
+      trace('listening on port $port');
       NodejsConnector.connect({host: 'localhost', port: port}, function(i:Incoming):Outgoing {
         i.stream.all().handle(function(o) switch o {
           case Success(chunk): asserts.assert(chunk == 'Hello, World!');
