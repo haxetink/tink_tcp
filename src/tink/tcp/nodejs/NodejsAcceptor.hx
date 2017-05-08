@@ -35,6 +35,7 @@ class NodejsAcceptor {
         });
       });
       
+      trace(port);
       server.on('error', function (e:{ code:String, message:String }) cb(
         Failure(new Error('${e.code} - Failed bindg port $port because ${e.message}'))
       )).on('listening', function () cb(
