@@ -4,6 +4,7 @@ using tink.io.Sink;
 using tink.io.Source;
 using tink.CoreApi;
 
+@:require(nodejs)
 class NodejsConnector {
   static public function connect(to:Endpoint, handler:Handler):Promise<Noise> 
     return Future.async(function (cb) {

@@ -6,6 +6,7 @@ using tink.io.Source;
 using tink.io.Sink;
 using tink.CoreApi;
 
+@:require(nodejs)
 class NodejsAcceptor {
   static public var inst(default, null):NodejsAcceptor = new NodejsAcceptor();
   function new() {}
