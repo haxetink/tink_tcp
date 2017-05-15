@@ -1,6 +1,6 @@
-# @install: lix --silent download https://github.com/haxetink/tink_io/archive/a138d8c79d374e81be91e5e0e7319cad0e4feab7.tar.gz into tink_io/0.0.0/github/a138d8c79d374e81be91e5e0e7319cad0e4feab7
+# @install: lix --silent download https://github.com/haxetink/tink_io/archive/a9b57d88d531d1b4e2d0ebd70cea1e8c766a9a2d.tar.gz into tink_io/0.0.0/github/a9b57d88d531d1b4e2d0ebd70cea1e8c766a9a2d
 -D tink_io=0.0.0
--cp ${HAXESHIM_LIBCACHE}/tink_io/0.0.0/github/a138d8c79d374e81be91e5e0e7319cad0e4feab7/src
+-cp ${HAXESHIM_LIBCACHE}/tink_io/0.0.0/github/a9b57d88d531d1b4e2d0ebd70cea1e8c766a9a2d/src
 
 -lib tink_chunk
 -lib tink_streams
