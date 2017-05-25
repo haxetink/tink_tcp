@@ -1,6 +1,6 @@
-[![Gitter](https://img.shields.io/gitter/room/nwjs/nw.js.svg?maxAge=2592000)](https://gitter.im/haxetink/public)
-
 # Tink TCP
+
+[![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/haxetink/public)
 
 This library offers a cross platform TCP API, that is based on tink_io's pure asynchronous streams.
 
