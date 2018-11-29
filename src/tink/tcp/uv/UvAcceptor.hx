@@ -20,9 +20,6 @@ class UvAcceptor {
       var server = new uv.Tcp();
       var trigger:SignalTrigger<Session> = Signal.trigger();
       
-      // TODO: handle error
-      // cb(Failure(new Error(Uv.err_name(code)))); return;
-      
       check(server.init(uv.Loop.DEFAULT));
       server.setData(trigger);
       var addr = new uv.SockAddrIn();
@@ -46,12 +43,12 @@ class UvAcceptor {
       var name = new uv.SockAddrStorage();
       var namelen = name.sizeof();
       var to = client.getSockName(name, cast Pointer.addressOf(namelen));
-      name.destroy(); // TODO: don't alloc, use stack instead
+      name.destroy(); // TODO: don't alloc, use stack instead, but how?
       
       var name = new uv.SockAddrStorage();
       var namelen = name.sizeof();
       var from = client.getPeerName(name, cast Pointer.addressOf(namelen));
-      name.destroy(); // TODO: don't alloc, use stack instead
+      name.destroy(); // TODO: don't alloc, use stack instead, but how?
       
       trigger.trigger({
         sink: cast new tink.io.uv.UvStreamSink('TODO', client),
