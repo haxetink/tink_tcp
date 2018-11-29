@@ -1,0 +1,6 @@
+-cp ../tink_uv/src
+-D tink_uv
+-lib linc_uv
+-lib tink_syntaxhub
+
+--macro tink.uv.Boot.boot()

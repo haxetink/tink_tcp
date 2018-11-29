@@ -1,0 +1,8 @@
+-cp src
+-cp tests
+-cpp bin/playground
+-main Playground
+
+
+-lib tink_tcp
+-lib tink_uv

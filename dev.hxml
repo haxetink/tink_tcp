@@ -1,6 +1,0 @@
-tests.hxml
-
--js bin/neko/tests.n
-
--lib travix
--lib tink_tcp

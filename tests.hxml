@@ -1,5 +1,6 @@
 -main RunTests
 -cp tests
--dce full
+# -dce full
 
 -lib tink_unittest
+-lib tink_uv

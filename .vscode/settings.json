@@ -1,5 +1,13 @@
 {
     "haxe.displayConfigurations": [
-        ["dev.hxml"]
+        [
+            "tests.hxml",
+            "-lib",
+            "travix",
+            "-lib",
+            "tink_tcp",
+            "-cpp",
+            "bin/cpp"
+        ]
     ]
 }
