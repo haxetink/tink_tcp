@@ -10,8 +10,9 @@ using tink.CoreApi;
 
 class Playground {
 	static function main() {
-		UvAcceptor.inst.bind(7001).handle(function(o) switch o {
+		UvAcceptor.inst.bind(0).handle(function(o) switch o {
 			case Success(open):
+				trace('listening at ${open.port}');
 				open.setHandler(function(incoming:Incoming):Future<Outgoing> {
 					trace('from: ' + incoming.from.host.toString() + ':' + incoming.from.port);
 					trace('to: ' + incoming.to.host.toString() + ':' + incoming.to.port);

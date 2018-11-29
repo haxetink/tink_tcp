@@ -26,9 +26,10 @@ class UvAcceptor {
       check(addr.ip4Addr('0.0.0.0', port));
       check(server.bind(addr, 0));
       addr.destroy();
+      
       check(server.asStream().listen(128, Callable.fromStaticFunction(onConnect)));
       
-      cb(Success(new OpenPort(trigger, port)));
+      cb(Success(new OpenPort(trigger, server.getSockAddress().port)));
     });
   }
   
@@ -40,21 +41,11 @@ class UvAcceptor {
     if(server.asStream().accept(client) == 0) {
       var trigger:SignalTrigger<Session> = server.getData();
       
-      var name = new uv.SockAddrStorage();
-      var namelen = name.sizeof();
-      var to = client.getSockName(name, cast Pointer.addressOf(namelen));
-      name.destroy(); // TODO: don't alloc, use stack instead, but how?
-      
-      var name = new uv.SockAddrStorage();
-      var namelen = name.sizeof();
-      var from = client.getPeerName(name, cast Pointer.addressOf(namelen));
-      name.destroy(); // TODO: don't alloc, use stack instead, but how?
-      
       trigger.trigger({
         sink: cast new tink.io.uv.UvStreamSink('TODO', client),
         incoming: {
-          from: from,
-          to: to,
+          from: cast client.getPeerAddress(),
+          to: cast client.getSockAddress(),
           stream: new tink.io.uv.UvStreamSource('TODO', client),
           closed: Future.trigger(),
         },
