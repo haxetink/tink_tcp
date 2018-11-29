@@ -34,38 +34,7 @@ class UvAcceptor {
       cb(Success(new OpenPort(trigger, port)));
     });
   }
-      
-    //   var server = js.node.Net.createServer({ allowHalfOpen: true }, function (cnx) {
-
-    //     var from:Endpoint = {
-    //       host: cnx.remoteAddress,
-    //       port: cnx.remotePort,
-    //     };
-
-    //     var to:Endpoint = {
-    //       host: cnx.localAddress,
-    //       port: cnx.localPort,
-    //     };
-
-    //     var closed = Future.trigger();
-    //     var stream = Source.ofNodeStream('Inbound stream from $to', cnx, { onEnd: closed.trigger.bind(Noise) });
-
-    //     s.trigger({
-    //       sink: cast Sink.ofNodeStream('Outbound stream to $from', cnx),
-    //       incoming: { from: from, to: to, stream: stream, closed: closed },
-    //       destroy: function () cnx.destroy()
-    //     });
-    //   });
-      
-    //   server.on('error', function (e:{ code:String, message:String }) cb(
-    //     Failure(new Error('${e.code} - Failed bindg port $port because ${e.message}'))
-    //   )).on('listening', function () cb(
-    //     Success(new OpenPort(s, server.address().port))
-    //   ))
-    //   .listen(switch port {
-    //     case null: 0;
-    //     case v: v;
-    //   });
+  
   static function onConnect(handle:RawPointer<Stream_t>, status:Int):Void {
     var server:uv.Tcp = handle;
     var client = new uv.Tcp();
@@ -73,11 +42,22 @@ class UvAcceptor {
     
     if(server.asStream().accept(client) == 0) {
       var trigger:SignalTrigger<Session> = server.getData();
+      
+      var name = new uv.SockAddrStorage();
+      var namelen = name.sizeof();
+      var to = client.getSockName(name, cast Pointer.addressOf(namelen));
+      name.destroy(); // TODO: don't alloc, use stack instead
+      
+      var name = new uv.SockAddrStorage();
+      var namelen = name.sizeof();
+      var from = client.getPeerName(name, cast Pointer.addressOf(namelen));
+      name.destroy(); // TODO: don't alloc, use stack instead
+      
       trigger.trigger({
-        sink: Sink.BLACKHOLE, // TODO
+        sink: cast new tink.io.uv.UvStreamSink('TODO', client),
         incoming: {
-          from: {host: '', port: 0},
-          to: {host: '', port: 0},
+          from: from,
+          to: to,
           stream: new tink.io.uv.UvStreamSource('TODO', client),
           closed: Future.trigger(),
         },
@@ -88,7 +68,6 @@ class UvAcceptor {
     }
   }
 #end
-
   
   macro function check(ethis, expr) {
     return macro switch ($expr) {

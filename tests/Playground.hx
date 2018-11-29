@@ -12,16 +12,11 @@ class Playground {
 	static function main() {
 		UvAcceptor.inst.bind(7001).handle(function(o) switch o {
 			case Success(open):
-				trace('opened');
 				open.setHandler(function(incoming:Incoming):Future<Outgoing> {
-					trace(incoming);
-					incoming.stream.chunked().forEach(function(c:Chunk) {
-						trace(c.length);
-						return Resume;
-					}).handle(function(o) trace(o));
-					trace('return');
+					trace('from: ' + incoming.from.host.toString() + ':' + incoming.from.port);
+					trace('to: ' + incoming.to.host.toString() + ':' + incoming.to.port);
 					return Future.sync({
-						stream: Source.EMPTY,
+						stream: incoming.stream.idealize(function(_) return Source.EMPTY),
 						allowHalfOpen: true,
 					});
 				});
