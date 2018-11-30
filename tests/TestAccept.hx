@@ -5,11 +5,13 @@ import tink.streams.IdealStream;
 import tink.io.PipeResult;
 import tink.tcp.*;
 import tink.tcp.nodejs.*;
+import tink.tcp.uv.*;
 
 using tink.CoreApi;
 using tink.streams.Stream;
 using tink.io.Sink;
 using tink.io.Source;
+
 
 @:asserts
 class TestAccept {
@@ -20,7 +22,12 @@ class TestAccept {
   public function accept() {
     var port = Future.trigger();
     
-    NodejsAcceptor.inst.bind().handle(function(o) switch o {
+    #if tink_uv
+    UvAcceptor
+    #else
+    NodejsAcceptor
+    #end
+    .inst.bind().handle(function(o) switch o {
       case Success(openPort):
         port.trigger(openPort.port);
         openPort.setHandler(function(i:Incoming):Outgoing {
@@ -51,7 +58,12 @@ class TestAccept {
     });
     
     port.handle(function(port) {
-      NodejsConnector.connect({host: 'localhost', port: port}, function(i:Incoming):Outgoing {
+      #if tink_uv
+      UvConnector
+      #else
+      NodejsConnector
+      #end
+      .connect({host: 'localhost', port: port}, function(i:Incoming):Outgoing {
         i.stream.all().handle(function(o) switch o {
           case Success(chunk): asserts.assert(chunk == 'Hello, World!');
           case Failure(e): asserts.fail(e);

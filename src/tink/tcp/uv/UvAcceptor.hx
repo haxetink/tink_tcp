@@ -15,7 +15,7 @@ class UvAcceptor {
   static public var inst(default, null):UvAcceptor = new UvAcceptor();
   function new() {}
   
-  public function bind(port:Int):Promise<OpenPort> {
+  public function bind(port = 0):Promise<OpenPort> {
     return Future.async(function(cb) {
       var server = new uv.Tcp();
       var trigger:SignalTrigger<Session> = Signal.trigger();
@@ -27,13 +27,13 @@ class UvAcceptor {
       check(server.bind(addr, 0));
       addr.destroy();
       
-      check(server.asStream().listen(128, Callable.fromStaticFunction(onConnect)));
+      check(server.asStream().listen(128, Callable.fromStaticFunction(onConnection)));
       
       cb(Success(new OpenPort(trigger, server.getSockAddress().port)));
     });
   }
   
-  static function onConnect(handle:RawPointer<Stream_t>, status:Int):Void {
+  static function onConnection(handle:RawPointer<Stream_t>, status:Int):Void {
     var server:uv.Tcp = handle;
     var client = new uv.Tcp();
     client.init(uv.Loop.DEFAULT);
@@ -41,12 +41,14 @@ class UvAcceptor {
     if(server.asStream().accept(client) == 0) {
       var trigger:SignalTrigger<Session> = server.getData();
       
+      var wrapped = tink.io.uv.UvStreamWrapper.wrap(client, {source: {name: 'TODO'}, sink: {name: 'TODO'}});
+      
       trigger.trigger({
-        sink: cast new tink.io.uv.UvStreamSink('TODO', client),
+        sink: cast wrapped.b,
         incoming: {
           from: cast client.getPeerAddress(),
           to: cast client.getSockAddress(),
-          stream: new tink.io.uv.UvStreamSource('TODO', client),
+          stream: wrapped.a,
           closed: Future.trigger(),
         },
         destroy: function() {} // TODO
@@ -63,5 +65,4 @@ class UvAcceptor {
       case code: cb(Failure(new Error(Uv.err_name(code)))); return;
     }
   }
-  
 }
