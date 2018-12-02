@@ -1,0 +1,4 @@
+-D hxuv=0.0.0
+# @install: lix --silent download "gh://github.com/kevinresol/hxuv#1c6b96c1362433e862d25b95e3c9213a6043bea0" into hxuv/0.0.0/github/1c6b96c1362433e862d25b95e3c9213a6043bea0
+# -cp ${HAXE_LIBCACHE}/hxuv/0.0.0/github/1c6b96c1362433e862d25b95e3c9213a6043bea0/src
+-cp ../hxuv/src

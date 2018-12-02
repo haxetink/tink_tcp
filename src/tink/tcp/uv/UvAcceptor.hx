@@ -1,9 +1,9 @@
 package tink.tcp.uv;
 
 #if !macro
-import cpp.*;
-import uv.Uv;
+import hxuv.*;
 import tink.tcp.OpenPort;
+import tink.uv.Error as UvError;
 
 using tink.io.Source;
 using tink.io.Sink;
@@ -17,52 +17,34 @@ class UvAcceptor {
   
   public function bind(port = 0):Promise<OpenPort> {
     return Future.async(function(cb) {
-      var server = new uv.Tcp();
+      var server = Tcp.alloc();
       var trigger:SignalTrigger<Session> = Signal.trigger();
-      
-      check(server.init(uv.Loop.DEFAULT));
-      server.setData(trigger);
-      var addr = new uv.SockAddrIn();
-      check(addr.ip4Addr('0.0.0.0', port));
-      check(server.bind(addr, 0));
-      addr.destroy();
-      
-      check(server.asStream().listen(128, Callable.fromStaticFunction(onConnection)));
-      
-      cb(Success(new OpenPort(trigger, server.getSockAddress().port)));
+      check(server.bind('0.0.0.0', port, 0));
+      check(server.listen(128, function(_) {
+        var client = Tcp.alloc();
+        check(server.accept(client));
+        var wrapper = new tink.io.uv.UvStreamWrapper(client);
+        trigger.trigger({
+          sink: cast new tink.io.uv.UvStreamSink('TODO', wrapper),
+          incoming: {
+            from: cast client.getpeername(),
+            to: cast client.getsockname(),
+            stream: new tink.io.uv.UvStreamSource('TODO', wrapper),
+            closed: wrapper.closed,
+          },
+          destroy: function() {} // TODO
+        });
+      }));
+      cb(Success(new OpenPort(trigger, server.getsockname().port)));
     });
   }
   
-  static function onConnection(handle:RawPointer<Stream_t>, status:Int):Void {
-    var server:uv.Tcp = handle;
-    var client = new uv.Tcp();
-    client.init(uv.Loop.DEFAULT);
-    
-    if(server.asStream().accept(client) == 0) {
-      var trigger:SignalTrigger<Session> = server.getData();
-      
-      var wrapped = tink.io.uv.UvStreamWrapper.wrap(client, {source: {name: 'TODO'}, sink: {name: 'TODO'}});
-      
-      trigger.trigger({
-        sink: cast wrapped.b,
-        incoming: {
-          from: cast client.getPeerAddress(),
-          to: cast client.getSockAddress(),
-          stream: wrapped.a,
-          closed: Future.trigger(),
-        },
-        destroy: function() {} // TODO
-      });
-    } else {
-      client.asHandle().close(null);
-    }
-  }
 #end
   
   macro function check(ethis, expr) {
     return macro switch ($expr) {
       case 0: null;
-      case code: cb(Failure(new Error(Uv.err_name(code)))); return;
+      case code: cb(Failure(UvError.ofStatus(code))); return;
     }
   }
 }
