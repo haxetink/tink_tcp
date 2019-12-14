@@ -17,8 +17,9 @@ os:
   # - osx
 
 env:
-  - HAXE_VERSION=3.4.7
+  - HAXE_VERSION=stable
   - HAXE_VERSION=latest
+  - HAXE_VERSION=nightly
   
 install:
   - npm i -g lix
@@ -27,6 +28,7 @@ install:
   
 script:
   - lix run travix node
+  - lix run travix java -D jvm
 
 # jobs:
 #   include:

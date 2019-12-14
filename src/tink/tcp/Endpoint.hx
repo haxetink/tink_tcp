@@ -16,6 +16,10 @@ abstract Endpoint(EndpointData) from EndpointData {
         this.port == 443
       else
         this.secure;
+        
+  public inline function new(host, port, ?secure) {
+    this = {host: host, port: port, secure: secure}
+  }
   
   @:from static function fromPort(port:Int):Endpoint
     return { port: port, host: '127.0.0.1' };
