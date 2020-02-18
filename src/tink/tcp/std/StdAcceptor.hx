@@ -14,7 +14,7 @@ class StdAcceptor {
 
 	function new() {}
 
-	public function bind2(port:Int):Promise<OpenPort>
+	public function bind(port:Int):Promise<OpenPort>
 		return Future.async(cb -> {
 			var s = new SignalTrigger<Session>();
 			tink.tcp.Server.bind(port).handle(o -> switch (o) {
