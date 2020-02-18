@@ -22,12 +22,12 @@ abstract Server(ServerObject) from ServerObject {
    * - `-lib nodejs` (and `-js` of course)
    * - `-lib tink_runloop` and one of `-neko` or `-java` or `-cpp`
    */
-  @:require(neko || java || cpp || nodejs)
-  #if (neko || java || cpp)
+  @:require(sys || nodejs)
+  #if (sys)
     @:require(tink_runloop)
   #end
   static public function bind(port:Int):Surprise<Server, Error> {
-    #if ((neko || java || cpp) && tink_runloop)
+    #if (sys && tink_runloop)
       return SysServer.bind(port);
     #elseif nodejs
       return NodeServer.bind(port);
@@ -42,7 +42,7 @@ interface ServerObject {
   function close():Void;
 }
 
-#if (tink_runloop && (neko || java || cpp))
+#if (tink_runloop && sys)
 class RunloopServer implements ServerObject {
   var usher:Worker;
   var releaseKeepAlive:Task;
@@ -83,7 +83,8 @@ class RunloopServer implements ServerObject {
     try {
       
       var scribe = getScribe();
-      var client = boundPort.accept(scribe, scribe);//TODO: consider having separate threads for output to reduce back pressure
+      var writer = getScribe();
+      var client = boundPort.accept(scribe, writer);
       
       usher.owner.work(function () _connected.trigger(client));
     }

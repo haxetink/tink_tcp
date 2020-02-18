@@ -79,7 +79,7 @@ class Connection {
     var name = '[Connection to $to]';
     function fail(e:Dynamic) 
       return Failure(Error.reporter(500, 'Failed to establish $name')(e));
-    #if (neko || cpp || java)
+    #if (sys)
       reader = reader.ensure();
       writer = writer.ensure();
       return reader.work(function () return
