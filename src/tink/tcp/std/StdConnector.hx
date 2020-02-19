@@ -29,20 +29,34 @@ class StdConnector {
 									case Plain(bodyStream):
 										bodyStream;
 									case Parsed(array):
+										#if tink_multipart
+										var parts = [];
+										#end
 										array.map(function(namedBodyPart) {
 											var out = '';
 											switch namedBodyPart.value {
 												case Value(val):
-													out = '${namedBodyPart.name}=$val';
+													#if tink_multipart
+													parts.push(tink.multipart.Part.value(namedBodyPart.name, val));
+													#else
+													cb(Failure(new Error('Multi-part parsing is not enabled. (must include -lib tink_multipart)')));
+													#end
 												case File(file):
-													cb(Failure(new Error('File transmission not supported with this client.')));
+													#if tink_multipart
+													parts.push(tink.multipart.Part.file('datafile', file.fileName, file.mimeType,
+														tink.io.Source.RealSourceTools.idealize(file.read(), _ -> tink.Chunk.EMPTY)));
+													#else
+													cb(Failure(new Error('Multi-part parsing is not enabled. (must include -lib tink_multipart)')));
+													#end
 											}
 											return out;
 										}).join("&");
+										#if tink_multipart
+										(new tink.multipart.Multipart(null, parts).toIdealSource() : RealSource);
+										#end
 								};
 								body.prepend(req.header.toString()).pipeTo(cnx.sink, {end: true}).handle(function(o) {
 									trace(o);
-									cnx.close();
 									cb(switch o {
 										case SinkFailed(e, _): Failure(e);
 										case SinkEnded(_, {depleted: true}): Failure(new Error('$out closed before all data could be written'));

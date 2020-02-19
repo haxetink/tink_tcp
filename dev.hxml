@@ -2,6 +2,7 @@ tests.hxml
 
 -lib travix
 -lib tink_tcp
+-lib tink_multipart
 --each
 
 -lib tink_http
@@ -14,4 +15,4 @@ tests.hxml
 # -lib hxcs
 # -lib tink_http -- need to implement sys.ssl.Socket for C#
 # -lib tink_runloop
-# -cs bin/cs
+# -cs bin/csi

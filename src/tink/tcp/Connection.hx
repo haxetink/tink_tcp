@@ -194,7 +194,7 @@ private class SocketOutput extends haxe.io.Output {
 		return if (counter <= 10)
 			sockets;
 		else
-			#if java
+			#if sys
 			{
 				Sys.sleep(selectTime);
 				sockets;
