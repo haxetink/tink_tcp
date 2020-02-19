@@ -1,6 +1,17 @@
 tests.hxml
 
--js bin/neko/tests.n
-
 -lib travix
 -lib tink_tcp
+--each
+
+-lib tink_http
+-lib tink_runloop
+-hl bin/hl/test.hl
+--next
+-lib hxnodejs
+-js bin/js/test.js
+# --next
+# -lib hxcs
+# -lib tink_http -- need to implement sys.ssl.Socket for C#
+# -lib tink_runloop
+# -cs bin/cs

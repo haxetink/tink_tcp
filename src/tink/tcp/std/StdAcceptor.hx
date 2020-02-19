@@ -1,8 +1,6 @@
 package tink.tcp.hl;
 
 import tink.tcp.OpenPort;
-import hl.uv.Tcp;
-import tink.io.hl.*;
 import sys.net.*;
 
 using tink.io.Source;
