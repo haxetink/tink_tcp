@@ -154,9 +154,9 @@ private class SocketInput extends haxe.io.Input {
 				sockets;
 			}
       #elseif (concurrent && tink_runloop)
-      tink.RunLoop.current.synchronously(function() 
-        return Socket.select(Socket, [], [], selectTime).read;
-      );
+      tink.RunLoop.current.synchronously(function() {
+        return Socket.select(sockets, [], [], selectTime).read;
+      });
       #else
 			Socket.select(sockets, [], [], selectTime).read;
 			#end
@@ -204,9 +204,9 @@ private class SocketOutput extends haxe.io.Output {
 				sockets;
 			}
       #elseif (concurrent && tink_runloop)
-      tink.RunLoop.current.synchronously(function()
+      tink.RunLoop.current.synchronously(function(){
         return Socket.select([], sockets, [], selectTime).write;
-      );
+      });
       #else
       Socket.select([], sockets, [], selectTime).write;
 			#end
