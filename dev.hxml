@@ -7,7 +7,8 @@ tests.hxml
 
 -lib tink_http
 -lib tink_runloop
--hl bin/hl/test.hl
+-lib tink_concurrent
+-hl bin/hl/test-concurrent.hl
 --next
 -lib hxnodejs
 -js bin/js/test.js

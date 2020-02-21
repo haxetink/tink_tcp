@@ -16,7 +16,7 @@ class TestConnect {
 	#if (((haxe_ver > 3.210) || nodejs) && !java)
 	@:variant('https'('encrypted.google.com', 443))
 	#end
-	@:variant('http'('httpbin.org', 80))
+	@:variant('https'('httpbin.org', 443))
 	@:include
 	public function connect(host:String, port:Int) {
 		var pipeResult = Future.trigger();

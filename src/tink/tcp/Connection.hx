@@ -153,7 +153,11 @@ private class SocketInput extends haxe.io.Input {
 				Sys.sleep(selectTime);
 				sockets;
 			}
-			#else
+      #elseif (concurrent && tink_runloop)
+      tink.RunLoop.current.synchronously(function() 
+        return Socket.select(Socket, [], [], selectTime).read;
+      );
+      #else
 			Socket.select(sockets, [], [], selectTime).read;
 			#end
 	}
@@ -194,13 +198,17 @@ private class SocketOutput extends haxe.io.Output {
 		return if (counter <= 10)
 			sockets;
 		else
-			#if sys
+			#if java
 			{
 				Sys.sleep(selectTime);
 				sockets;
 			}
-			#else
-			Socket.select([], sockets, [], selectTime).write;
+      #elseif (concurrent && tink_runloop)
+      tink.RunLoop.current.synchronously(function()
+        return Socket.select([], sockets, [], selectTime).write;
+      );
+      #else
+      Socket.select([], sockets, [], selectTime).write;
 			#end
 	}
 
