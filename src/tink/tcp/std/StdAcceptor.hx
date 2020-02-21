@@ -1,4 +1,4 @@
-package tink.tcp.hl;
+package tink.tcp.std;
 
 import tink.tcp.OpenPort;
 import sys.net.*;
