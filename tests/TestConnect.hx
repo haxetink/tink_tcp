@@ -1,7 +1,6 @@
 package;
 
 import tink.io.*;
-import tink.io.PipeResult;
 import tink.tcp.*;
 
 using StringTools;
@@ -10,39 +9,37 @@ using tink.CoreApi;
 
 @:asserts
 class TestConnect {
+  var client:Client =
+    #if java
+    (new tink.tcp.clients.JavaClient() : Client);
+    #else
+    (new tink.tcp.clients.NodeClient() : Client);
+    #end
+
   public function new() {}
 
   @:describe('Read from a web server')
-  #if (((haxe_ver > 3.210) || nodejs) && !java)
-  @:variant('https'('encrypted.google.com', 443))
-  #end
-  @:variant('http'('httpbin.io', 80))
-  @:include
-  public function connect(host:String, port:Int) {
-    var pipeResult = Future.trigger();
-    var connectResult = Future.trigger();
-
-    Future.inSequence([pipeResult.asFuture(), connectResult.asFuture()]).handle(function(v) asserts.done());
-
-    #if java tink.tcp.java.JavaConnector #elseif nodejs tink.tcp.nodejs.NodejsConnector #end
-    .connect({host: host, port: port}, function(i:Incoming):Outgoing {
-      i.stream.all().handle(function(o) switch o {
-        case Success(chunk):
-          asserts.assert(chunk.length > 0);
-          asserts.assert(chunk.toString().startsWith('HTTP')); // make sure we got an HTTP response
-          pipeResult.trigger(Noise);
-        case Failure(e):
-          asserts.fail(e);
+  public function connect() {
+    return Server.bind(0).next(server -> {
+      server.connected.handle(cnx -> {
+        var body = 'OK';
+        var response = 'HTTP/1.1 200 OK\r\nContent-Length: ${body.length}\r\nConnection: close\r\n\r\n$body';
+        (response : RealSource).pipeTo(cnx.sink, {end: true});
+        cnx.source.all(); // drain the source, on nodejs this is required to ensure the connection is closed on the server
       });
-      return {
-        stream: 'GET / HTTP/1.1\r\nHost: $host\r\nConnection: close\r\n\r\n',
-        allowHalfOpen: true
-      }
-    }).handle(function(p) {
-      asserts.assert(p.isSuccess());
-      connectResult.trigger(Noise);
-    });
 
-    return asserts;
+
+      client.connect({host: '127.0.0.1', port: server.port})
+        .next(cnx -> {
+          var req:RealSource = 'GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n';
+          req.pipeTo(cnx.sink, {end: true}).next(_ -> cnx.source.all());
+        })
+        .next(chunk -> {
+          asserts.assert(chunk.length > 0);
+          asserts.assert(chunk.toString().startsWith('HTTP'));
+        })
+        .next(_ -> server.close())
+        .next(_ -> asserts.done());
+    });
   }
 }

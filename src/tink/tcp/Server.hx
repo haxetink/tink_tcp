@@ -29,6 +29,7 @@ abstract Server(ServerObject) from ServerObject {
 
 interface ServerObject {
   var connected(get, never):Signal<Connection>;
+  var port(get, never):Int;
   function close():Promise<Noise>;
 }
 

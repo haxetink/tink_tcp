@@ -1,3 +1,6 @@
+// Disabled: native node benchmark, not part of the Client/Server test suite.
+// Kept for reference during future Server/OpenPort overhaul (issue #5).
+#if false
 package;
 
 import haxe.Timer;
@@ -72,3 +75,4 @@ class NodeTestNative {
   }
   
 }
+#end

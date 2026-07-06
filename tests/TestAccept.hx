@@ -1,3 +1,6 @@
+// Disabled: targets the removed Handler/Connector/Acceptor API.
+// May be revived during a future Server/OpenPort overhaul (issue #5).
+#if false
 package;
 
 import tink.Chunk;
@@ -70,4 +73,4 @@ class TestAccept {
   }
   
 }
-
+#end

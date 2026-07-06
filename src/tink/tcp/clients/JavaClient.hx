@@ -1,21 +1,29 @@
 package tink.tcp.clients;
 
+#if java
 import java.lang.Throwable;
+import java.net.InetSocketAddress;
 import java.nio.channels.CompletionHandler;
 import java.nio.channels.AsynchronousSocketChannel;
 import tink.tcp.Client;
 import tink.tcp.Connection;
 import tink.tcp.connections.JavaConnection;
+import tink.io.java.OnMainThread;
 
 using tink.CoreApi;
 
 class JavaClient implements Client {
   public function new() {}
   public function connect(to:Endpoint):Promise<Connection> {
+    if (to.secure)
+      return Future.sync(Failure(new Error('Secure connections are not supported on JVM')));
     return Future.async(function(cb) {
-      // TODO: secure
       var native = AsynchronousSocketChannel.open();
-      native.connect(to, native, new ConnectedHandler('Connection to $to', cb));
+      var remote:InetSocketAddress = new InetSocketAddress(to.host, to.port);
+      native.connect(remote, native, new ConnectedHandler('Connection to $to', cb, native));
+      return function() {
+        try native.close() catch (_:Dynamic) {}
+      };
     });
   }
 }
@@ -23,17 +31,25 @@ class JavaClient implements Client {
 private class ConnectedHandler implements CompletionHandler<java.lang.Void, AsynchronousSocketChannel>  {
   var name:String;
   var cb:Callback<Outcome<Connection, Error>>;
+  var socket:AsynchronousSocketChannel;
   
-  public function new(name, cb) {
+  public function new(name, cb, socket) {
     this.name = name;
     this.cb = cb;
+    this.socket = socket;
   }
   
-  public function completed(result:java.lang.Void, socket:AsynchronousSocketChannel) {
-    cb.invoke(Success(new JavaConnection('Connection to ${socket.getRemoteAddress()}', socket)));
+  public function completed(result:java.lang.Void, attachment:AsynchronousSocketChannel) {
+    OnMainThread.run(function() {
+      cb.invoke(Success(new JavaConnection('Connection to ${socket.getRemoteAddress()}', socket)));
+    });
   }
   
-  public function failed(exc:Throwable, socket:AsynchronousSocketChannel) {
-    cb.invoke(Failure(Error.withData('Connection failed, reason: ' + exc.getMessage(), exc)));
+  public function failed(exc:Throwable, attachment:AsynchronousSocketChannel) {
+    OnMainThread.run(function() {
+      try socket.close() catch (_:Dynamic) {}
+      cb.invoke(Failure(Error.withData('Connection failed, reason: ' + exc.getMessage(), exc)));
+    });
   }
 }
+#end

@@ -17,38 +17,49 @@ abstract Endpoint from { host: String, port: Int, ?secure:Bool } {
   @:to function toString():String;
 }
 
-typedef Incoming = {
-  var from(default, never):Endpoint;
-  var to(default, never):Endpoint;
-  var stream(default, never):RealSource;
+interface Connection {
+  final source:RealSource;
+  final sink:RealSink;
+  final local:Endpoint;
+  final peer:Endpoint;
 }
 
-typedef Outgoing = {
-  var stream(default, never):IdealSource;
-  @:optional var allowHalfOpen(default, never):Bool;
+interface Client {
+  function connect(to:Endpoint):Promise<Connection>;
 }
 
-abstract Handler {
-  function handle(incoming:Incoming):Future<Outgoing>;
-  @:from static private function ofAsync(f:Incoming->Future<Outgoing>):Handler;
-  @:from static private function ofSync(f:Incoming->Outgoing):Handler;
+interface ServerObject {
+  var connected(get, never):Signal<Connection>;
+  var port(get, never):Int;
+  function close():Promise<Noise>;
 }
 
-class OpenPort {
-  
-  var queued(default, null):Int;
-  var running(default, null):Int;
-  var maxRunning(default, null):Int = 0x100000;
-
-  function setHandler(handler:Handler):Promise<Noise>;
-  function shutdown(?hard:Bool):Promise<Bool>;
-}
-
-interface Connector {
-  function connect(to:Endpoint, handler:Handler):Promise<Noise>;
-}
-
-interface Acceptor {
-  function bind(?port:Int):Promise<OpenPort>;
+abstract Server(ServerObject) from ServerObject {
+  static public function bind(port:Int):Promise<Server>;
 }
 ```
+
+Platform implementations:
+
+- Node.js: `tink.tcp.clients.NodeClient`, `tink.tcp.servers.NodeServer`
+- JVM: `tink.tcp.clients.JavaClient`, `tink.tcp.servers.JavaServer`
+
+Construct clients explicitly at the call site:
+
+```haxe
+#if java
+  var client = new tink.tcp.clients.JavaClient();
+#else
+  var client = new tink.tcp.clients.NodeClient();
+#end
+
+client.connect({ host: 'example.com', port: 80 }).handle(function (o) switch o {
+  case Success(cnx): /* use cnx.source and cnx.sink */;
+  case Failure(e): /* handle error */;
+});
+```
+
+Notes:
+
+- Node.js supports TLS when `endpoint.secure` is true (or port is 443).
+- JVM supports TCP only; `connect()` rejects secure endpoints with an error.

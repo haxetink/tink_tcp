@@ -1,5 +1,6 @@
 package tink.tcp.connections;
 
+#if java
 import tink.tcp.Connection;
 import tink.io.Source;
 import tink.io.Sink;
@@ -17,3 +18,4 @@ class JavaConnection implements Connection {
 		sink = Sink.ofJavaSocketChannel('Outcoming stream of $name', native);
 	}
 }
+#end
