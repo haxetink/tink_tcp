@@ -28,29 +28,26 @@ abstract Server(ServerObject) from ServerObject {
 }
 
 interface ServerObject {
-  var connected(get, never):Signal<Connection>;
+  final connected:Signal<Connection>;
   var port(get, never):Int;
   function close():Promise<Noise>;
 }
 
 // #if (tink_runloop && (neko || java || cpp))
 // class RunloopServer implements ServerObject {
-//   var usher:Worker;
-//   var releaseKeepAlive:Task;
-//   var getScribe:Void->Worker;
+//   final usher:Worker;
+//   final releaseKeepAlive:Task;
+//   final getScribe:Void->Worker;
 //   var boundPort: {
 //     function close():Void;
 //     function accept(reader:Worker, writer:Worker):Connection;
 //   };
-//   var _connected:SignalTrigger<Connection>;
+//   final connected:Signal<Connection>;
+//   final trigger:SignalTrigger<Connection>;
   
-//   public var connected(get, never):Signal<Connection>;
-  
-//   inline function get_connected() 
-//     return _connected.asSignal();
-    
 //   public function new(usher, getScribe, bind) {
-//     this._connected = Signal.trigger();
+//     this.trigger = Signal.trigger();
+//     this.connected = trigger.asSignal();
 //     this.usher = usher;
 //     this.getScribe = getScribe;
     
@@ -73,10 +70,10 @@ interface ServerObject {
 //     if (releaseKeepAlive.state != Pending) return;
 //     try {
       
-//       var scribe = getScribe();
-//       var client = boundPort.accept(scribe, scribe);//TODO: consider having separate threads for output to reduce back pressure
+//       final scribe = getScribe();
+//       final client = boundPort.accept(scribe, scribe);//TODO: consider having separate threads for output to reduce back pressure
       
-//       usher.owner.work(function () _connected.trigger(client));
+//       usher.owner.work(() -> trigger.trigger(client));
 //     }
 //     catch (e:Dynamic) {
 //       //do something about this?
@@ -88,7 +85,7 @@ interface ServerObject {
 //   public function close() 
 //     if (boundPort != null) {
 //       releaseKeepAlive.perform();
-//       _connected.clear();
+//       trigger.clear();
 //       boundPort.close();
 //       boundPort = null;      
 //     }  
@@ -96,18 +93,18 @@ interface ServerObject {
 
 // class SysServer extends RunloopServer {
 //   public function new(usher, getScribe, port:Int) 
-//     super(usher, getScribe, function (options) {
+//     super(usher, getScribe, options -> {
 //       #if java
-//       var s = java.nio.channels.ServerSocketChannel.open();
+//       final s = java.nio.channels.ServerSocketChannel.open();
 //       s.bind(new java.net.InetSocketAddress(port));
 //       s.configureBlocking(options.blocking);
 //       return {
 //         close: s.close,
-//         accept: function (read, write) {
-//           var client = s.accept();
+//         accept: (read, write) -> {
+//           final client = s.accept();
 //           client.configureBlocking(false);
-//           var peer = client.getRemoteAddress();
-//           var endpoint:Endpoint = 1234;
+//           final peer = client.getRemoteAddress();
+//           final endpoint:Endpoint = 1234;
 //           return new Connection(
 //             new tink.io.java.JavaSource(client, 'Inbound stream from $endpoint', read),
 //             new tink.io.java.JavaSink(client, 'Outbound stream to $endpoint', write),
@@ -118,15 +115,15 @@ interface ServerObject {
 //         }
 //       }
 //       #else
-//       var s = new Socket();
+//       final s = new Socket();
 //       s.bind(new Host('0.0.0.0'), port);//TODO: find out how to bind for any address
 //       s.listen(0x4000);
 //       s.setBlocking(options.blocking);
 //       return {
 //         close: s.close,
-//         accept: function (read, write) {
-//           var client = s.accept();
-//           var peer = client.peer();
+//         accept: (read, write) -> {
+//           final client = s.accept();
+//           final peer = client.peer();
           
 //           return Connection.wrap( { port: peer.port, host: peer.host.toString() }, client, read, write);  
 //         }
@@ -135,14 +132,12 @@ interface ServerObject {
 //     });
   
 //   static public function bind(port:Int) {
-//     var workers = [for (i in 0...10) tink.RunLoop.current.createSlave()];
+//     final workers = [for (i in 0...10) tink.RunLoop.current.createSlave()];
 //     return Future.sync(
 //       Success(
 //         (new SysServer(
 //           workers.pop(), 
-//           function () {
-//             return workers[Std.random(workers.length)];//the naive hope is that randomness makes it harder to glue down a single worker
-//           },
+//           () -> workers[Std.random(workers.length)],//the naive hope is that randomness makes it harder to glue down a single worker
 //           port
 //         ) : Server)
 //       )

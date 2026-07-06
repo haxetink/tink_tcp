@@ -11,10 +11,10 @@ using Lambda;
 
 @:asserts
 class EchoTest {
-  var total = 10;
-  var message = Bytes.ofString([for(i in 0...10000) 'Is it me you\'re looking for $i?'].join(' '));
-  var echoer = 'hello\r\n';
-  var client:Client =
+  final total = 10;
+  final message = Bytes.ofString([for(i in 0...10000) 'Is it me you\'re looking for $i?'].join(' '));
+  final echoer = 'hello\r\n';
+  final client:Client =
     #if java
     new tink.tcp.clients.JavaClient();
     #else
@@ -26,11 +26,11 @@ class EchoTest {
   @:variant(this.sequential, this.message.length + this.echoer.length * this.total)
   @:variant(this.parallel, (this.message.length + this.echoer.length) * this.total)
   public function echo(fn:(Int, Int) -> Promise<Int>, expected:Int) {
-    var isParallel = expected == (message.length + echoer.length) * total;
+    final isParallel = expected == (message.length + echoer.length) * total;
     return Server.bind(0).next(server -> {
       var echoed = 0;
-      var serverTask = Future.trigger();
-      server.connected.handle(function(cnx) {
+      final serverTask = Future.trigger();
+      server.connected.handle(cnx -> {
         (echoer : RealSource).append(cnx.source).pipeTo(cnx.sink, {end: true})
           .handle(v -> {
             var ok = switch v {
@@ -43,7 +43,7 @@ class EchoTest {
           });
       });
 
-      var clientTask = fn(total, server.port)
+      final clientTask = fn(total, server.port)
         .next(length -> asserts.assert(length == expected));
 
       Promise.inParallel([serverTask, clientTask])
@@ -54,7 +54,7 @@ class EchoTest {
 
   function sequential(total:Int, port:Int) {
     var last:RealSource = message;
-    var promise = Promise.inSequence([for(i in 0...total)
+    final promise = Promise.inSequence([for(i in 0...total)
       Promise.lazy(() -> {
         client.connect(port).next(cnx -> {
           last.pipeTo(cnx.sink, {end: true}).next(result -> {
@@ -71,7 +71,7 @@ class EchoTest {
   function parallel(total:Int, port:Int) {
     return Promise.inParallel([for(i in 0...total) {
       client.connect(port).next(cnx -> {
-        var write:RealSource = message;
+        final write:RealSource = message;
         return write.pipeTo(cnx.sink, {end: true})
           .next(_ -> cnx.source.all())
           .next(chunk -> chunk.length);

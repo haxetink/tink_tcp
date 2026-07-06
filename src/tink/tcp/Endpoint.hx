@@ -1,10 +1,10 @@
 package tink.tcp;
 
 private typedef EndpointData = {
-  public var host(default, null):String;
-  public var port(default, null):Int;
-  @:optional 
-  public var secure(default, null):Bool;
+  public final host:String;
+  public final port:Int;
+  @:optional
+  public final secure:Bool;
 }
 
 @:forward(host, port)
@@ -29,7 +29,7 @@ abstract Endpoint(EndpointData) from EndpointData {
     
   #if java
   @:from static inline function fromJavaSocketAddress(address:java.net.SocketAddress):Endpoint {
-    var inet:java.net.InetSocketAddress = cast address;
+    final inet:java.net.InetSocketAddress = cast address;
     return {host: inet.getHostName(), port: inet.getPort()}
   }
   @:to inline function toJavaSocketAddress():java.net.SocketAddress {

@@ -18,8 +18,8 @@ class JavaClient implements Client {
     if (to.secure)
       return Future.sync(Failure(new Error('Secure connections are not supported on JVM')));
     return Future.async(function(cb) {
-      var native = AsynchronousSocketChannel.open();
-      var remote:InetSocketAddress = new InetSocketAddress(to.host, to.port);
+      final native = AsynchronousSocketChannel.open();
+      final remote:InetSocketAddress = new InetSocketAddress(to.host, to.port);
       native.connect(remote, native, new ConnectedHandler('Connection to $to', cb, native));
       return function() {
         try native.close() catch (_:Dynamic) {}
@@ -29,9 +29,9 @@ class JavaClient implements Client {
 }
 
 private class ConnectedHandler implements CompletionHandler<java.lang.Void, AsynchronousSocketChannel>  {
-  var name:String;
-  var cb:Callback<Outcome<Connection, Error>>;
-  var socket:AsynchronousSocketChannel;
+  final name:String;
+  final cb:Callback<Outcome<Connection, Error>>;
+  final socket:AsynchronousSocketChannel;
   
   public function new(name, cb, socket) {
     this.name = name;
@@ -40,13 +40,13 @@ private class ConnectedHandler implements CompletionHandler<java.lang.Void, Asyn
   }
   
   public function completed(result:java.lang.Void, attachment:AsynchronousSocketChannel) {
-    OnMainThread.run(function() {
+    OnMainThread.run(() -> {
       cb.invoke(Success(new JavaConnection('Connection to ${socket.getRemoteAddress()}', socket)));
     });
   }
   
   public function failed(exc:Throwable, attachment:AsynchronousSocketChannel) {
-    OnMainThread.run(function() {
+    OnMainThread.run(() -> {
       try socket.close() catch (_:Dynamic) {}
       cb.invoke(Failure(Error.withData('Connection failed, reason: ' + exc.getMessage(), exc)));
     });

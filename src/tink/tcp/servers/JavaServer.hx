@@ -14,23 +14,19 @@ using tink.CoreApi;
 
 @:allow(tink.tcp)
 class JavaServer implements ServerObject {
-  var native:Native;
-  var trigger:SignalTrigger<Connection>;
-  var _connected:Signal<Connection>;
-  public var connected(get, null):Signal<Connection>;
-  
-  function get_connected()
-    return _connected;
+  final native:Native;
+  final trigger:SignalTrigger<Connection>;
+  public final connected:Signal<Connection>;
   
   public var port(get, never):Int;
   function get_port() {
-    var addr:java.net.InetSocketAddress = cast native.getLocalAddress();
+    final addr:java.net.InetSocketAddress = cast native.getLocalAddress();
     return addr.getPort();
   }
     
   public function new(server) {
     this.native = server;
-    _connected = trigger = Signal.trigger();
+    connected = trigger = Signal.trigger();
     server.accept(this, new AcceptedHandler());
   }
   
@@ -40,9 +36,9 @@ class JavaServer implements ServerObject {
   }
   
   static public function bind(port:Int) {
-    return new Promise(function(resolve, reject) {
+    return new Promise((resolve, reject) -> {
       try {
-        var server = Native.open();
+        final server = Native.open();
         server.bind(new java.net.InetSocketAddress('0.0.0.0', port));
         resolve((new JavaServer(server):Server));
       } catch(e:java.io.IOException) {
@@ -58,7 +54,7 @@ private class AcceptedHandler implements CompletionHandler<AsynchronousSocketCha
   public function new() {}
   
   public function completed(socket:AsynchronousSocketChannel, server:JavaServer) {
-    OnMainThread.run(function() {
+    OnMainThread.run(() -> {
       server.trigger.trigger(new JavaConnection('Connection from ${socket.getRemoteAddress()}', socket));
       server.native.accept(server, this);
     });

@@ -10,7 +10,7 @@ using tink.CoreApi;
 class NodeClient implements Client {
 	public function new() {}
 	public function connect(to:Endpoint):Promise<Connection> {
-		return new Promise(function(resolve, reject) {
+		return new Promise((resolve, reject) -> {
 			var done = false;
 			function finish(f:Void->Void) {
 				if (!done) {
@@ -18,9 +18,9 @@ class NodeClient implements Client {
 					f();
 				}
 			}
-			var native = to.secure ? js.node.Tls.connect(to.port, to.host) : js.node.Net.connect(to.port, to.host);
-			native.once('connect', function () finish(function() resolve((new NodeConnection('Connection to $to', native):Connection))));
-			native.once('error', function (e) finish(function() reject(Error.ofJsError(e))));
+			final native = to.secure ? js.node.Tls.connect(to.port, to.host) : js.node.Net.connect(to.port, to.host);
+			native.once('connect', () -> finish(() -> resolve((new NodeConnection('Connection to $to', native):Connection))));
+			native.once('error', e -> finish(() -> reject(Error.ofJsError(e))));
 			return function() {
 				if (!done) {
 					done = true;

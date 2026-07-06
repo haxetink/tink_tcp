@@ -29,7 +29,7 @@ interface Client {
 }
 
 interface ServerObject {
-  var connected(get, never):Signal<Connection>;
+  final connected:Signal<Connection>;
   var port(get, never):Int;
   function close():Promise<Noise>;
 }
@@ -48,12 +48,12 @@ Construct clients explicitly at the call site:
 
 ```haxe
 #if java
-  var client = new tink.tcp.clients.JavaClient();
+  final client = new tink.tcp.clients.JavaClient();
 #else
-  var client = new tink.tcp.clients.NodeClient();
+  final client = new tink.tcp.clients.NodeClient();
 #end
 
-client.connect({ host: 'example.com', port: 80 }).handle(function (o) switch o {
+client.connect({ host: 'example.com', port: 80 }).handle(o -> switch o {
   case Success(cnx): /* use cnx.source and cnx.sink */;
   case Failure(e): /* handle error */;
 });

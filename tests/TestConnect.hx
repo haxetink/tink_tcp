@@ -9,7 +9,7 @@ using tink.CoreApi;
 
 @:asserts
 class TestConnect {
-  var client:Client =
+  final client:Client =
     #if java
     (new tink.tcp.clients.JavaClient() : Client);
     #else
@@ -22,8 +22,8 @@ class TestConnect {
   public function connect() {
     return Server.bind(0).next(server -> {
       server.connected.handle(cnx -> {
-        var body = 'OK';
-        var response = 'HTTP/1.1 200 OK\r\nContent-Length: ${body.length}\r\nConnection: close\r\n\r\n$body';
+        final body = 'OK';
+        final response = 'HTTP/1.1 200 OK\r\nContent-Length: ${body.length}\r\nConnection: close\r\n\r\n$body';
         (response : RealSource).pipeTo(cnx.sink, {end: true});
         cnx.source.all(); // drain the source, on nodejs this is required to ensure the connection is closed on the server
       });
@@ -31,7 +31,7 @@ class TestConnect {
 
       client.connect({host: '127.0.0.1', port: server.port})
         .next(cnx -> {
-          var req:RealSource = 'GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n';
+          final req:RealSource = 'GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n';
           req.pipeTo(cnx.sink, {end: true}).next(_ -> cnx.source.all());
         })
         .next(chunk -> {
