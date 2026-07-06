@@ -10,22 +10,20 @@ using tink.CoreApi;
 
 @:asserts
 class TestConnect {
-  
   public function new() {}
-  
+
   @:describe('Read from a web server')
   #if (((haxe_ver > 3.210) || nodejs) && !java)
-  @:variant('https' ('encrypted.google.com', 443))
+  @:variant('https'('encrypted.google.com', 443))
   #end
-  @:variant('http' ('httpbin.org', 80))
+  @:variant('http'('httpbin.io', 80))
   @:include
   public function connect(host:String, port:Int) {
-    
     var pipeResult = Future.trigger();
     var connectResult = Future.trigger();
-    
-    Future.ofMany([pipeResult.asFuture(), connectResult.asFuture()]).handle(function(v) asserts.done());
-    
+
+    Future.inSequence([pipeResult.asFuture(), connectResult.asFuture()]).handle(function(v) asserts.done());
+
     #if java tink.tcp.java.JavaConnector #elseif nodejs tink.tcp.nodejs.NodejsConnector #end
     .connect({host: host, port: port}, function(i:Incoming):Outgoing {
       i.stream.all().handle(function(o) switch o {
@@ -44,9 +42,7 @@ class TestConnect {
       asserts.assert(p.isSuccess());
       connectResult.trigger(Noise);
     });
-    
+
     return asserts;
   }
-  
 }
-
