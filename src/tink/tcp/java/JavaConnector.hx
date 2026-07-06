@@ -17,6 +17,7 @@ class JavaConnector {
 			var socket = AsynchronousSocketChannel.open();
 			var remote:SocketAddress = new InetSocketAddress(to.host, to.port);
 			socket.connect(remote, 0, new ConnectHandler(resolve, reject, socket, handler));
+			return () -> socket.close();
 		});
 	}
 }
