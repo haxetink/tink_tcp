@@ -7,12 +7,28 @@ import java.nio.channels.CompletionHandler;
 import java.net.SocketAddress;
 import java.net.InetSocketAddress;
 import tink.io.Sink;
+import tink.streams.Stream;
+import tink.tcp.Handler as TcpHandler;
 
 using tink.io.Source;
 using tink.CoreApi;
 
+private function wrapSourceWithOnEnd(source:RealSource, onEnd:Void->Void):RealSource {
+	function wrap(s:RealSource):RealSource
+		return Generator.stream(function (emit) {
+			(s:Stream<Chunk, Error>).next().handle(function (step) switch step {
+				case Link(chunk, rest): emit(Link(chunk, wrap(rest)));
+				case Fail(e): emit(Fail(e));
+				case End:
+					if (onEnd != null) onEnd();
+					emit(End);
+			});
+		});
+	return wrap(source);
+}
+
 class JavaConnector {
-	static public function connect(to:Endpoint, handler:Handler):Promise<Noise> {
+	static public function connect(to:Endpoint, handler:TcpHandler):Promise<Noise> {
 		return new Promise(function(resolve, reject) {
 			var socket = AsynchronousSocketChannel.open();
 			var remote:SocketAddress = new InetSocketAddress(to.host, to.port);
@@ -26,7 +42,7 @@ private class ConnectHandler implements CompletionHandler<java.lang.Void, Int>  
 	var resolve:Callback<Noise>;
 	var reject:Callback<Error>;
 	var socket:AsynchronousSocketChannel;
-	var handler:Handler;
+	var handler:TcpHandler;
 	
 	public function new(resolve, reject, socket, handler) {
 		this.resolve = resolve;
@@ -38,20 +54,27 @@ private class ConnectHandler implements CompletionHandler<java.lang.Void, Int>  
 	public function completed(result:java.lang.Void, attachment:Int) {
 		var remote:InetSocketAddress = cast socket.getRemoteAddress();
 		var local:InetSocketAddress = cast socket.getLocalAddress();
-		var source = Source.ofJavaSocketChannel('Incoming stream of connection to ${remote.toString()}', socket);
+		var sourceClosed = Future.trigger();
+		var source = wrapSourceWithOnEnd(
+			Source.ofJavaSocketChannel('Incoming stream of connection to ${remote.toString()}', socket),
+			sourceClosed.trigger.bind(Noise)
+		);
 		var sink = Sink.ofJavaSocketChannel('Outgoing stream of connection to ${remote.toString()}', socket);
 		var remote = new Endpoint(remote.getHostName(), remote.getPort());
 		var local = new Endpoint(local.getHostName(), local.getPort());
-		var sourceClosed = Future.trigger();
 		
 		handler.handle({from: remote, to: local, stream: source, closed: sourceClosed}).handle(function (outgoing) {
 			outgoing.stream.pipeTo(sink, {end: true}).handle(function (o) {
-				// TODO: support allowHalfOpen
-				switch o {
-					case SinkFailed(e, _): reject.invoke(e);
-					case SinkEnded(_, { depleted: false }): reject.invoke(new Error('$sink closed before all data could be written'));
-					default: resolve.invoke(Noise);
-				}
+				(
+					if (outgoing.allowHalfOpen) sourceClosed.asFuture()
+					else Future.sync(Noise)
+				).handle(function (_) {
+					switch o {
+						case SinkFailed(e, _): reject.invoke(e);
+						case SinkEnded(_, { depleted: false }): reject.invoke(new Error('$sink closed before all data could be written'));
+						default: resolve.invoke(Noise);
+					}
+				});
 			});
 		});
 	}

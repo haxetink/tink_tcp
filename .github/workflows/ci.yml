@@ -17,7 +17,7 @@ jobs:
           - nightly
         target:
           - node
-          # - jvm
+          - jvm
 
     steps:
       - name: Check out repo
