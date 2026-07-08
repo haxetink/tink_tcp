@@ -5,6 +5,7 @@ import sys.net.Host;
 import sys.net.Socket;
 #end
 import tink.io.*;
+import tink.tcp.Tls.TlsServerOptions;
 #if tink_runloop
 import tink.runloop.Worker;
 import tink.runloop.Task;
@@ -12,7 +13,8 @@ import tink.runloop.Task;
 
 using tink.CoreApi;
 
-typedef ServerBindOptions = {
+typedef BindOptions = {
+  ?tls:TlsServerOptions,
   #if eval
   ?loop:eval.luv.Loop,
   #end
@@ -20,11 +22,11 @@ typedef ServerBindOptions = {
 
 @:forward
 abstract Server(ServerObject) from ServerObject {
-  static public function bind(target:Endpoint, ?options:ServerBindOptions):Promise<Server> {
+  static public function bind(target:Endpoint, ?options:BindOptions):Promise<Server> {
     #if java
     return tink.tcp.servers.JavaServer.bind(target);
     #elseif nodejs
-    return tink.tcp.servers.NodeServer.bind(target);
+    return tink.tcp.servers.NodeServer.bind(target, options);
     #elseif eval
     return tink.tcp.servers.EvalServer.bind(target, options);
     // #elseif ((neko || java || cpp) && tink_runloop)

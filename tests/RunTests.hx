@@ -14,6 +14,9 @@ class RunTests {
     Runner.run(TestBatch.make([
       new EchoTest(),
       new TestConnect(),
+      #if nodejs
+      new NodeTlsTest(),
+      #end
     ])).handle(Runner.exit);
   }
 }

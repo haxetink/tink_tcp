@@ -3,22 +3,12 @@ package tink.tcp;
 private typedef EndpointData = {
   public final host:String;
   public final port:Int;
-  @:optional
-  public final secure:Bool;
 }
 
 @:forward(host, port)
 abstract Endpoint(EndpointData) from EndpointData {
-  public var secure(get, never): Bool;
-  function get_secure()
-    return 
-      if (this.secure == null)
-        this.port == 443
-      else
-        this.secure;
-        
-  public inline function new(host, port, ?secure) {
-    this = {host: host, port: port, secure: secure}
+  public inline function new(host, port) {
+    this = {host: host, port: port}
   }
   
   @:from inline static function fromPort(port:Int):Endpoint

@@ -1,6 +1,6 @@
 package tink.tcp;
 
-package tink.tcp;
+import haxe.io.Bytes;
 
 typedef TlsClientOptions = {
   final ?ca:Bytes;

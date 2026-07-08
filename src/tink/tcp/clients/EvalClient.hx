@@ -3,6 +3,7 @@ package tink.tcp.clients;
 
 import eval.luv.*;
 import tink.tcp.Client;
+import tink.tcp.Client.ConnectOptions;
 import tink.tcp.Connection;
 import tink.tcp.connections.EvalConnection;
 
@@ -15,10 +16,7 @@ class EvalClient implements Client {
     this.loop = loop ?? (sys.thread.Thread.current().events : Loop);
   }
 
-  public function connect(to:Endpoint):Promise<Connection> {
-    if (to.secure)
-      return new Error('TLS is not supported on eval target');
-
+  public function connect(to:Endpoint, ?options:ConnectOptions):Promise<Connection> {
     final addr = switch SockAddr.ipv4(to.host, to.port) {
       case Ok(addr): addr;
       case Error(e):

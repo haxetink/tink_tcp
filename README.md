@@ -9,10 +9,9 @@ package tink.tcp;
 
 using tink.io.Source;//defines IdealSource and RealSource
 
-abstract Endpoint from { host: String, port: Int, ?secure:Bool } {
+abstract Endpoint from { host: String, port: Int } {
   public var host(get, never):String;
   public var port(get, never):Int;
-  public var secure(get, never):Bool;
   @:from static function fromPort(port:Int):Endpoint;
   @:to function toString():String;
 }
@@ -60,8 +59,12 @@ client.connect({ host: 'example.com', port: 80 }).handle(o -> switch o {
 });
 ```
 
-Notes:
+TLS is opt-in via an explicit `tls` option on `Server.bind` and `Client.connect` — it is **only implemented on Node.js**; other platforms silently ignore it and always use plain TCP:
 
-- Node.js supports TLS when `endpoint.secure` is true (or port is 443).
-- JVM supports TCP only; `connect()` rejects secure endpoints with an error.
-- Eval (interp) uses `eval.luv` via libuv. TCP only (no TLS). Hostnames are resolved with getaddrinfo. Optional `?loop` on bind/connect constructors defaults to `sys.thread.Thread.current().events`. Use `EvalLoop.runWithPump` to drive the event loop while running async I/O.
+```haxe
+// Server: requires cert + key (see TlsServerOptions in tink.tcp.Tls)
+Server.bind({ host: '0.0.0.0', port: 443 }, { tls: { cert: certBytes, key: keyBytes } });
+
+// Client: only meaningful on Node.js (see TlsClientOptions in tink.tcp.Tls)
+client.connect({ host: 'example.com', port: 443 }, { tls: { ca: caBytes, servername: 'example.com' } });
+```

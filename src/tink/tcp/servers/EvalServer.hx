@@ -40,7 +40,7 @@ class EvalServer implements ServerObject {
     });
   }
 
-  static public function bind(target:Endpoint, ?options:ServerBindOptions):Promise<Server> {
+  static public function bind(target:Endpoint, ?options:BindOptions):Promise<Server> {
     final l = options?.loop ?? (sys.thread.Thread.current().events : Loop);
     return new Promise((resolve, reject) -> {
       final server = switch Tcp.init(l) {
