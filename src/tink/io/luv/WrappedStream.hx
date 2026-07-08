@@ -21,6 +21,9 @@ class WrappedStream {
   var readWaiters:Array<Callback<ReadOutcome>> = [];
   var readQueue:Array<Chunk> = [];
 
+  var writeEnded = false;
+  var closed = false;
+
   public function new(name:String, stream:Stream, ?chunkSize:Int = 0x10000) {
     this.name = name;
     this.stream = stream;
@@ -85,7 +88,9 @@ class WrappedStream {
 
   function completeWaiters(result:ReadOutcome) {
     switch result {
-      case Success(null): readEnded = true;
+      case Success(null):
+        readEnded = true;
+        tryClose();
       default:
     }
     while(readWaiters.length > 0)
@@ -118,19 +123,39 @@ class WrappedStream {
 
   public function end():Promise<Bool> {
     return Future.irreversible(cb -> {
-      stream.shutdown(result -> {
-        switch result {
-          case Error(e):
-            cb(Failure(luvError(e, 'Shutdown failed for "$name"')));
-          case Ok(_):
-            cb(Success(false));
-        }
-      });
+      if (writeEnded)
+        cb(Success(false));
+      else
+        stream.shutdown(result -> {
+          switch result {
+            case Error(e):
+              cb(Failure(luvError(e, 'Shutdown failed for "$name"')));
+            case Ok(_):
+              writeEnded = true;
+              tryClose();
+              cb(Success(false));
+          }
+        });
     });
+  }
+
+  function tryClose() {
+    if (!closed && readEnded && writeEnded)
+      doClose();
+  }
+
+  function doClose() {
+    if (!closed && !Handle.isClosing(stream)) {
+      closed = true;
+      finishReading();
+      Handle.close(stream, noop);
+    }
   }
 
   static function luvError(e:UVError, message:String):Error {
     return Error.withData('$message: ${e.toString()}', e);
   }
+
+  static function noop() {}
 }
 #end
