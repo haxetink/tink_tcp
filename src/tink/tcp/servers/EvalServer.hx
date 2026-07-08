@@ -40,8 +40,8 @@ class EvalServer implements ServerObject {
     });
   }
 
-  static public function bind(port:Int, ?loop:Loop):Promise<Server> {
-    final l = loop ?? (sys.thread.Thread.current().events : Loop);
+  static public function bind(target:Endpoint, ?options:ServerBindOptions):Promise<Server> {
+    final l = options?.loop ?? (sys.thread.Thread.current().events : Loop);
     return new Promise((resolve, reject) -> {
       final server = switch Tcp.init(l) {
         case Error(e):
@@ -50,10 +50,10 @@ class EvalServer implements ServerObject {
         case Ok(v): v;
       };
 
-      final addr = switch SockAddr.ipv4('0.0.0.0', port) {
+      final addr = switch SockAddr.ipv4(target.host, target.port) {
         case Error(e):
           Handle.close(server, noop);
-          reject(luvError(e, 'Failed to parse bind address for port $port'));
+          reject(luvError(e, 'Failed to parse bind address for $target'));
           return null;
         case Ok(v): v;
       };
@@ -61,7 +61,7 @@ class EvalServer implements ServerObject {
       switch server.bind(addr) {
         case Error(e):
           Handle.close(server, noop);
-          reject(luvError(e, 'Failed to bind server on port $port'));
+          reject(luvError(e, 'Failed to bind server on $target'));
           return null;
         case Ok(_):
       }

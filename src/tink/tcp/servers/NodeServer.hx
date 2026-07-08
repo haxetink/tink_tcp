@@ -36,7 +36,7 @@ class NodeServer implements ServerObject {
     });
   }
 
-  static public function bind(port:Int) {
+  static public function bind(target:Endpoint) {
     final server = js.node.Net.createServer();
     return
       Future.async(function(cb) {
@@ -44,9 +44,9 @@ class NodeServer implements ServerObject {
           cb(Success((new NodeServer(server) : Server)));
         });
         server.on('error', e -> {
-          cb(Failure(new Error('Failed to open server on port $port because $e')));
+          cb(Failure(new Error('Failed to open server on $target because $e')));
         });
-        server.listen(port);
+        server.listen(target.port, target.host);
         return function() {
           server.close();
         };

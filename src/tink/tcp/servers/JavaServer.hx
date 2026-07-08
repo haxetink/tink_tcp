@@ -35,11 +35,11 @@ class JavaServer implements ServerObject {
     return Promise.NOISE;
   }
   
-  static public function bind(port:Int) {
+  static public function bind(target:Endpoint) {
     return new Promise((resolve, reject) -> {
       try {
         final server = Native.open();
-        server.bind(new java.net.InetSocketAddress('0.0.0.0', port));
+        server.bind(target.toJavaSocketAddress());
         resolve((new JavaServer(server):Server));
       } catch(e:java.io.IOException) {
         reject(Error.withData(e.getMessage(), e));

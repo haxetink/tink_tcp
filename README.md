@@ -32,10 +32,8 @@ interface ServerObject {
   final connected:Signal<Connection>;
   var port(get, never):Int;
   function close():Promise<Noise>;
-}
 
-abstract Server(ServerObject) from ServerObject {
-  static public function bind(port:Int):Promise<Server>;
+  static public function bind(target:Endpoint):Promise<Server>;
 }
 ```
 
