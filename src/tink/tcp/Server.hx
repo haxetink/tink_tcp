@@ -19,6 +19,8 @@ abstract Server(ServerObject) from ServerObject {
       return tink.tcp.servers.JavaServer.bind(port);
     #elseif nodejs
       return tink.tcp.servers.NodeServer.bind(port);
+    #elseif eval
+      return tink.tcp.servers.EvalServer.bind(port);
     // #elseif ((neko || java || cpp) && tink_runloop)
       // return SysServer.bind(port);
     #else

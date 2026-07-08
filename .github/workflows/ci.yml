@@ -18,6 +18,7 @@ jobs:
         target:
           - node
           - jvm
+          - interp
 
     steps:
       - name: Check out repo

@@ -11,9 +11,16 @@ class RunTests {
         #if java
         OnMainThread.init();
         #end
+        #if eval
+        tink.tcp.eval.EvalLoop.runWithPump(() -> Runner.run(TestBatch.make([
+            new EchoTest(),
+            new TestConnect(),
+        ]))).handle(Runner.exit);
+        #else
         Runner.run(TestBatch.make([
             new EchoTest(),
             new TestConnect(),
         ])).handle(Runner.exit);
+        #end
     }
 }

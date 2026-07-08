@@ -27,6 +27,18 @@ abstract Endpoint(EndpointData) from EndpointData {
   @:to public inline function toString():String
     return '${this.host}:${this.port}';
     
+  #if eval
+  @:from static function fromSockAddr(addr:eval.luv.SockAddr):Endpoint {
+    final port = addr.port ?? 0;
+    final text = addr.toString();
+    final host = {
+      final idx = text.lastIndexOf(':');
+      if (idx >= 0) text.substr(0, idx) else text;
+    };
+    return { host: host, port: port };
+  }
+  #end
+
   #if java
   @:from static inline function fromJavaSocketAddress(address:java.net.SocketAddress):Endpoint {
     final inet:java.net.InetSocketAddress = cast address;

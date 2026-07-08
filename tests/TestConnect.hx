@@ -12,6 +12,8 @@ class TestConnect {
   final client:Client =
     #if java
     (new tink.tcp.clients.JavaClient() : Client);
+    #elseif eval
+    (new tink.tcp.clients.EvalClient() : Client);
     #else
     (new tink.tcp.clients.NodeClient() : Client);
     #end

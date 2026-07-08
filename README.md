@@ -43,12 +43,15 @@ Platform implementations:
 
 - Node.js: `tink.tcp.clients.NodeClient`, `tink.tcp.servers.NodeServer`
 - JVM: `tink.tcp.clients.JavaClient`, `tink.tcp.servers.JavaServer`
+- Eval (interp): `tink.tcp.clients.EvalClient`, `tink.tcp.servers.EvalServer`, `tink.tcp.eval.EvalLoop`
 
 Construct clients explicitly at the call site:
 
 ```haxe
 #if java
   final client = new tink.tcp.clients.JavaClient();
+#elseif eval
+  final client = new tink.tcp.clients.EvalClient();
 #else
   final client = new tink.tcp.clients.NodeClient();
 #end
@@ -63,3 +66,4 @@ Notes:
 
 - Node.js supports TLS when `endpoint.secure` is true (or port is 443).
 - JVM supports TCP only; `connect()` rejects secure endpoints with an error.
+- Eval (interp) uses `eval.luv` via libuv. TCP only (no TLS). Hostnames are resolved with getaddrinfo. Optional `?loop` on bind/connect constructors defaults to `sys.thread.Thread.current().events`. Use `EvalLoop.runWithPump` to drive the event loop while running async I/O.
