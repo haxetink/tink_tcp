@@ -17,11 +17,14 @@ class JavaClient implements Client {
   public function new() {}
 
   public function connect(to:Endpoint, ?options:ConnectOptions):Promise<Connection> {
-    return Future.async(function(cb) {
+    return new Future(cb -> {
       final native = AsynchronousSocketChannel.open();
-      final remote:InetSocketAddress = new InetSocketAddress(to.host, to.port);
-      native.connect(remote, native, new ConnectedHandler('Connection to $to', cb, native));
-      return function() {
+      var connected = false; // only cancellable before connection completes
+      native.connect(to, native, new ConnectedHandler('Connection to $to', outcome -> {
+        connected = true;
+        cb(outcome);
+      }));
+      return () -> if (!connected) {
         try native.close()
         catch (_:Dynamic) {}
       };
@@ -32,21 +35,19 @@ class JavaClient implements Client {
 private class ConnectedHandler implements CompletionHandler<java.lang.Void, AsynchronousSocketChannel> {
   final name:String;
   final cb:Callback<Outcome<Connection, Error>>;
-  final socket:AsynchronousSocketChannel;
 
-  public function new(name, cb, socket) {
+  public function new(name, cb) {
     this.name = name;
     this.cb = cb;
-    this.socket = socket;
   }
 
-  public function completed(result:java.lang.Void, attachment:AsynchronousSocketChannel) {
+  public function completed(result:java.lang.Void, socket:AsynchronousSocketChannel) {
     OnMainThread.run(() -> {
       cb.invoke(Success(new JavaConnection('Connection to ${socket.getRemoteAddress()}', socket)));
     });
   }
 
-  public function failed(exc:Throwable, attachment:AsynchronousSocketChannel) {
+  public function failed(exc:Throwable, socket:AsynchronousSocketChannel) {
     OnMainThread.run(() -> {
       try socket.close()
       catch (_:Dynamic) {}

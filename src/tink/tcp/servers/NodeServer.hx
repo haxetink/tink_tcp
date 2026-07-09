@@ -56,17 +56,11 @@ class NodeServer implements ServerObject {
       js.node.Net.createServer();
     }
     return
-      Future.async(function(cb) {
-        server.on('listening', _ -> {
-          cb(Success((new NodeServer(server, tls != null) : Server)));
-        });
-        server.on('error', e -> {
-          cb(Failure(new Error('Failed to open server on $target because $e')));
-        });
+      new Future(cb -> {
+        server.on('listening', _ -> cb(Success((new NodeServer(server, tls != null) : Server))));
+        server.on('error', e -> cb(Failure(new Error('Failed to open server on $target because $e'))));
         server.listen(target.port, target.host);
-        return function() {
-          server.close();
-        };
+        return server.close;
       });
   }
 }
