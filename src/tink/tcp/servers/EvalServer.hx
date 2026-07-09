@@ -5,6 +5,11 @@ import eval.luv.*;
 import tink.tcp.Server;
 import tink.tcp.Connection;
 import tink.tcp.connections.EvalConnection;
+import tink.tcp.connections.EvalTlsConnection;
+import tink.tcp.eval.EvalLoop;
+import tink.tcp.tls.eval.EvalTlsContext;
+import tink.tcp.tls.eval.EvalTlsServerConfig;
+import tink.io.eval.EvalTlsSession;
 
 using tink.CoreApi;
 using eval.luv.Stream;
@@ -13,6 +18,7 @@ class EvalServer implements ServerObject {
   final native:Tcp;
   final loop:Loop;
   final trigger:SignalTrigger<Connection>;
+  final tls:Null<EvalTlsContext>;
 
   public final connected:Signal<Connection>;
 
@@ -25,10 +31,11 @@ class EvalServer implements ServerObject {
     }
   }
 
-  function new(server:Tcp, loop:Loop, trigger:SignalTrigger<Connection>) {
+  function new(server:Tcp, loop:Loop, trigger:SignalTrigger<Connection>, ?tls:EvalTlsContext) {
     this.native = server;
     this.loop = loop;
     this.trigger = trigger;
+    this.tls = tls;
     this.connected = trigger;
   }
 
@@ -40,8 +47,37 @@ class EvalServer implements ServerObject {
     });
   }
 
+  function acceptClient(client:Tcp) {
+    client.noDelay(true);
+    final name = switch client.getPeerName() {
+      case Ok(addr): 'Connection from $addr';
+      case Error(_): 'Connection';
+    };
+    if (tls == null) {
+      trigger.trigger((new EvalConnection(name, client) : Connection));
+      return;
+    }
+    try {
+      final ssl = tls.newSsl();
+      final session = new EvalTlsSession(client, ssl, tls);
+      session.handshake().handle(o -> switch o {
+        case Success(_):
+          trigger.trigger((new EvalTlsConnection(name, session) : Connection));
+        case Failure(_):
+          Handle.close(client, noop);
+      });
+    } catch (_:haxe.Exception) {
+      Handle.close(client, noop);
+    }
+  }
+
   static public function bind(target:Endpoint, ?options:BindOptions):Promise<Server> {
-    final l = options?.loop ?? (sys.thread.Thread.current().events : Loop);
+    final l = options?.loop ?? EvalLoop.current();
+    final tlsConfig:Null<EvalTlsServerConfig> = options?.tls;
+    final tlsCtx = if (tlsConfig == null) null else {
+      try tlsConfig.createContext()
+      catch (e:haxe.Exception) return Future.sync(Failure(Error.withData(e.message, e)));
+    };
     return new Promise((resolve, reject) -> {
       final server = switch Tcp.init(l) {
         case Error(e):
@@ -66,7 +102,7 @@ class EvalServer implements ServerObject {
         case Ok(_):
       }
 
-      final t = Signal.trigger();
+      final instance = new EvalServer(server, l, Signal.trigger(), tlsCtx);
       server.listen(function(result) {
         switch result {
           case Error(e):
@@ -80,17 +116,12 @@ class EvalServer implements ServerObject {
               case Error(_):
                 Handle.close(client, noop);
               case Ok(_):
-                client.noDelay(true);
-                final name = switch client.getPeerName() {
-                  case Ok(addr): 'Connection from $addr';
-                  case Error(_): 'Connection';
-                };
-                t.trigger((new EvalConnection(name, client) : Connection));
+                instance.acceptClient(client);
             }
         }
       });
 
-      resolve((new EvalServer(server, l, t) : Server));
+      resolve((instance : Server));
       return null;
     });
   }

@@ -59,7 +59,7 @@ client.connect({ host: 'example.com', port: 80 }).handle(o -> switch o {
 });
 ```
 
-TLS is opt-in via an explicit `tls` option on `Server.bind` and `Client.connect` — it is implemented on **Node.js** and **JVM**; other platforms silently ignore it and always use plain TCP:
+TLS is opt-in via an explicit `tls` option on `Server.bind` and `Client.connect`. It is implemented on **Node.js**, **JVM**, and **eval** (when built with an Haxe version that exposes eval mbedtls `set_bio`, `own_cert`, and ALPN). PKCS#8 private keys only (`BEGIN PRIVATE KEY`). CI `interp` TLS tests are gated behind `-D eval_tls` until the updated Haxe build is available upstream.
 
 ```haxe
 // Server: requires cert + key (see TlsServerOptions in tink.tcp.Tls)
@@ -68,3 +68,5 @@ Server.bind({ host: '0.0.0.0', port: 443 }, { tls: { cert: certBytes, key: keyBy
 // Client: see TlsClientOptions in tink.tcp.Tls
 client.connect({ host: 'example.com', port: 443 }, { tls: { ca: caBytes, servername: 'example.com' } });
 ```
+
+Eval TLS local test run: `lix run travix interp -D eval_tls`

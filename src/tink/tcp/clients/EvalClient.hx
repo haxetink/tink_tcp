@@ -6,6 +6,10 @@ import tink.tcp.Client;
 import tink.tcp.Client.ConnectOptions;
 import tink.tcp.Connection;
 import tink.tcp.connections.EvalConnection;
+import tink.tcp.connections.EvalTlsConnection;
+import tink.tcp.eval.EvalLoop;
+import tink.tcp.tls.eval.EvalTlsClientConfig;
+import tink.io.eval.EvalTlsSession;
 
 using tink.CoreApi;
 
@@ -13,7 +17,7 @@ class EvalClient implements Client {
   final loop:Loop;
 
   public function new(?loop:Loop) {
-    this.loop = loop ?? (sys.thread.Thread.current().events : Loop);
+    this.loop = loop ?? EvalLoop.current();
   }
 
   public function connect(to:Endpoint, ?options:ConnectOptions):Promise<Connection> {
@@ -38,7 +42,28 @@ class EvalClient implements Client {
             reject(luvError(e, 'Failed to connect to $to'));
           case Ok(_):
             tcp.noDelay(true);
-            resolve((new EvalConnection('Connection to $to', tcp) : Connection));
+            final tls = options?.tls;
+            if (tls == null) {
+              resolve((new EvalConnection('Connection to $to', tcp) : Connection));
+            } else {
+              try {
+                final cfg:EvalTlsClientConfig = tls;
+                final ctx = cfg.createContext();
+                final ssl = ctx.newSsl();
+                cfg.configureSsl(ssl, ctx);
+                final session = new EvalTlsSession(tcp, ssl, ctx);
+                session.handshake().handle(o -> switch o {
+                  case Success(_):
+                    resolve((new EvalTlsConnection('Connection to $to', session) : Connection));
+                  case Failure(e):
+                    Handle.close(tcp, noop);
+                    reject(e);
+                });
+              } catch (e:haxe.Exception) {
+                Handle.close(tcp, noop);
+                reject(Error.withData(e.message, e));
+              }
+            }
         }
       });
       return null;
