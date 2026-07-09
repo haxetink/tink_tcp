@@ -1,5 +1,5 @@
 #if java
-package tink.io.java;
+package tink.tcp.tls.java;
 
 import haxe.io.Bytes;
 

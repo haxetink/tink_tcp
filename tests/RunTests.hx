@@ -8,11 +8,8 @@ class RunTests {
     Runner.run(TestBatch.make([
       new EchoTest(),
       new TestConnect(),
-      #if nodejs
-      new NodeTlsTest(),
-      #end
-      #if java
-      new JavaTlsTest(),
+      #if (nodejs || java)
+      new TlsTest(),
       #end
     ])).handle(Runner.exit);
   }

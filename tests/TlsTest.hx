@@ -1,6 +1,6 @@
 package;
 
-#if java
+#if (nodejs || java)
 import haxe.io.Bytes;
 import tink.io.*;
 import tink.tcp.*;
@@ -9,21 +9,25 @@ using tink.io.Source;
 using tink.CoreApi;
 
 @:asserts
-class JavaTlsTest {
+class TlsTest {
   final cert = Bytes.ofString(TlsFixtures.certPem);
   final key = Bytes.ofString(TlsFixtures.keyPem);
+  final client:Client =
+    #if java
+    new tink.tcp.clients.JavaClient();
+    #else
+    new tink.tcp.clients.NodeClient();
+    #end
 
   public function new() {}
 
   @:describe('TLS server/client round trip using options.tls')
   public function tls() {
-    final client = new tink.tcp.clients.JavaClient();
-
     return Server.bind({host: '127.0.0.1', port: 0}, {tls: {cert: cert, key: key}}).next(server -> {
       final body = 'OK over TLS';
       server.connected.handle(cnx -> {
         (body : RealSource).pipeTo(cnx.sink, {end: true});
-        cnx.source.all();
+        cnx.source.all(); // drain, matching TestConnect
       });
 
       client.connect({host: 'localhost', port: server.port}, {tls: {ca: cert, servername: 'localhost'}})

@@ -59,12 +59,12 @@ client.connect({ host: 'example.com', port: 80 }).handle(o -> switch o {
 });
 ```
 
-TLS is opt-in via an explicit `tls` option on `Server.bind` and `Client.connect` — it is **only implemented on Node.js**; other platforms silently ignore it and always use plain TCP:
+TLS is opt-in via an explicit `tls` option on `Server.bind` and `Client.connect` — it is implemented on **Node.js** and **JVM**; other platforms silently ignore it and always use plain TCP:
 
 ```haxe
 // Server: requires cert + key (see TlsServerOptions in tink.tcp.Tls)
 Server.bind({ host: '0.0.0.0', port: 443 }, { tls: { cert: certBytes, key: keyBytes } });
 
-// Client: only meaningful on Node.js (see TlsClientOptions in tink.tcp.Tls)
+// Client: see TlsClientOptions in tink.tcp.Tls
 client.connect({ host: 'example.com', port: 443 }, { tls: { ca: caBytes, servername: 'example.com' } });
 ```
