@@ -11,6 +11,9 @@ class RunTests {
       #if nodejs
       new NodeTlsTest(),
       #end
+      #if java
+      new JavaTlsTest(),
+      #end
     ])).handle(Runner.exit);
   }
 }

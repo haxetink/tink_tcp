@@ -24,7 +24,7 @@ typedef BindOptions = {
 abstract Server(ServerObject) from ServerObject {
   static public function bind(target:Endpoint, ?options:BindOptions):Promise<Server> {
     #if java
-    return tink.tcp.servers.JavaServer.bind(target);
+    return tink.tcp.servers.JavaServer.bind(target, options);
     #elseif nodejs
     return tink.tcp.servers.NodeServer.bind(target, options);
     #elseif eval
