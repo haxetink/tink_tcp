@@ -1,6 +1,6 @@
 package;
 
-#if (nodejs || java || (eval && eval_tls))
+#if (nodejs || java || hl || (eval && eval_tls))
 import haxe.io.Bytes;
 import tink.io.*;
 import tink.tcp.*;
@@ -17,6 +17,8 @@ class TlsTest {
     new tink.tcp.clients.JavaClient();
     #elseif eval
     new tink.tcp.clients.EvalClient();
+    #elseif hl
+    new tink.tcp.clients.HlClient();
     #else
     new tink.tcp.clients.NodeClient();
     #end
@@ -33,7 +35,7 @@ class TlsTest {
       });
 
       client.connect({
-        host: #if eval '127.0.0.1' #else 'localhost' #end,
+        host: #if (eval || hl) '127.0.0.1' #else 'localhost' #end,
         port: server.port
       }, {tls: {ca: cert, servername: 'localhost'}})
         .next(cnx -> cnx.source.all())

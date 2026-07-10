@@ -1,0 +1,67 @@
+#if hl
+package tink.tcp.clients;
+
+import hl.uv.Loop;
+import hl.uv.Tcp;
+import sys.net.Host;
+import tink.tcp.Client;
+import tink.tcp.Client.ConnectOptions;
+import tink.tcp.Connection;
+import tink.tcp.connections.HlConnection;
+import tink.tcp.connections.HlTlsConnection;
+import tink.tcp.hl.HlLoop;
+import tink.tcp.tls.hl.HlTlsClientConfig;
+import tink.io.hl.HlTlsSession;
+
+using tink.CoreApi;
+
+class HlClient implements Client {
+  final loop:Loop;
+
+  public function new(?loop:Loop) {
+    this.loop = loop ?? HlLoop.current();
+  }
+
+  public function connect(to:Endpoint, ?options:ConnectOptions):Promise<Connection> {
+    return new Promise((resolve, reject) -> {
+      final tcp = new Tcp(loop);
+      final host = try new Host(to.host) catch (e:Dynamic) {
+        tcp.close();
+        reject(new Error('Failed to resolve ${to.host}: $e'));
+        return null;
+      };
+
+      tcp.connect(host, to.port, ok -> {
+        if (!ok) {
+          tcp.close();
+          reject(new Error('Failed to connect to $to'));
+          return;
+        }
+        final tls = options?.tls;
+        if (tls == null) {
+          resolve((new HlConnection('Connection to $to', tcp, null, to) : Connection));
+        } else {
+          try {
+            final cfg:HlTlsClientConfig = tls;
+            final ctx = cfg.createContext();
+            final ssl = ctx.newSsl();
+            cfg.configureSsl(ssl);
+            final session = new HlTlsSession(tcp, ssl, ctx);
+            session.handshake().handle(o -> switch o {
+              case Success(_):
+                resolve((new HlTlsConnection('Connection to $to', session, null, to) : Connection));
+              case Failure(e):
+                tcp.close();
+                reject(e);
+            });
+          } catch (e:haxe.Exception) {
+            tcp.close();
+            reject(Error.withData(e.message, e));
+          }
+        }
+      });
+      return null;
+    });
+  }
+}
+#end

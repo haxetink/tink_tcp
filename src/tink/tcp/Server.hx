@@ -17,6 +17,8 @@ typedef BindOptions = {
   ?tls:TlsServerOptions,
   #if eval
   ?loop:eval.luv.Loop,
+  #elseif hl
+  ?loop:hl.uv.Loop,
   #end
 };
 
@@ -29,6 +31,8 @@ abstract Server(ServerObject) from ServerObject {
     return tink.tcp.servers.NodeServer.bind(target, options);
     #elseif eval
     return tink.tcp.servers.EvalServer.bind(target, options);
+    #elseif hl
+    return tink.tcp.servers.HlServer.bind(target, options);
     // #elseif ((neko || java || cpp) && tink_runloop)
     // return SysServer.bind(port);
     #else
