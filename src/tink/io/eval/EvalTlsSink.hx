@@ -17,7 +17,7 @@ class EvalTlsSink extends SinkBase<tink.core.Error, Noise> {
   }
 
   override public function consume<EIn>(source:Stream<Chunk, EIn>, options:PipeOptions):Future<PipeResult<EIn, tink.core.Error, Noise>> {
-    final ret = source.forEach(c -> Future.async((cb:Callback<Handled<tink.core.Error>>) -> {
+    final ret = source.forEach(c -> Future.irreversible((cb:Callback<Handled<tink.core.Error>>) -> {
       session.write(c, o -> cb.invoke(switch o {
         case Success(_): Resume;
         case Failure(e): Clog(e);

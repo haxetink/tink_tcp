@@ -14,9 +14,9 @@ class JavaTlsSource extends Generator<Chunk, Error> {
   function new(name:String, session:JavaTlsSession) {
     this.name = name;
     this.session = session;
-    super(Future.async(function(cb:Callback<Step<Chunk, Error>>) {
-      session.read(function(o) {
-        OnMainThread.run(function() {
+    super(Future.irreversible((cb:Callback<Step<Chunk, Error>>) -> {
+      session.read(o -> {
+        OnMainThread.run(() -> {
           cb.invoke(switch o {
             case Success(null): End;
             case Success(chunk): Link(chunk, new JavaTlsSource(name, session));

@@ -14,8 +14,8 @@ class EvalTlsSource extends Generator<Chunk, tink.core.Error> {
   function new(name:String, session:EvalTlsSession) {
     this.name = name;
     this.session = session;
-    super(Future.async(function(cb:Callback<Step<Chunk, tink.core.Error>>) {
-      session.read(function(o) {
+    super(Future.irreversible((cb:Callback<Step<Chunk, tink.core.Error>>) -> {
+      session.read(o -> {
         cb.invoke(switch o {
           case Success(null): End;
           case Success(chunk): Link(chunk, new EvalTlsSource(name, session));

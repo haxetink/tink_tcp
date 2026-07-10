@@ -17,7 +17,7 @@ class JavaTlsSink extends SinkBase<Error, Noise> {
   }
 
   override public function consume<EIn>(source:Stream<Chunk, EIn>, options:PipeOptions):Future<PipeResult<EIn, Error, Noise>> {
-    final ret = source.forEach(c -> Future.async((cb:Callback<Handled<Error>>) -> {
+    final ret = source.forEach(c -> Future.irreversible((cb:Callback<Handled<Error>>) -> {
       session.write(c, o -> OnMainThread.run(() -> cb.invoke(switch o {
         case Success(_): Resume;
         case Failure(e): Clog(e);
