@@ -1,5 +1,4 @@
-#if cpp
-package tink.io.cpp;
+package tink.io;
 
 import tink.streams.Stream;
 import tink.Chunk;
@@ -8,11 +7,10 @@ import tink.io.Sink;
 using tink.io.PipeResult;
 using tink.CoreApi;
 
-@:allow(tink.io.cpp)
-class CppTlsSink extends SinkBase<Error, Noise> {
-  final session:CppTlsSession;
+class TlsSink extends SinkBase<Error, Noise> {
+  final session:TlsSession;
 
-  function new(session:CppTlsSession) {
+  function new(session:TlsSession) {
     this.session = session;
   }
 
@@ -30,7 +28,6 @@ class CppTlsSink extends SinkBase<Error, Noise> {
     return ret.map(c -> c.toResult(Noise));
   }
 
-  static public inline function wrap(name:String, session:CppTlsSession)
-    return new CppTlsSink(session);
+  static public inline function wrap(name:String, session:TlsSession)
+    return new TlsSink(session);
 }
-#end

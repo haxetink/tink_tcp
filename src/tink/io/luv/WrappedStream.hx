@@ -10,7 +10,7 @@ using eval.luv.Buffer;
 
 typedef ReadOutcome = Outcome<Null<Chunk>, Error>;
 
-class WrappedStream {
+class WrappedStream implements tink.io.DuplexStream {
   final name:String;
   final stream:Stream;
   final chunkSize:Int;

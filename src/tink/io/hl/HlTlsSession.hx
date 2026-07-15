@@ -10,7 +10,7 @@ import tink.tcp.tls.hl.HlTlsContext;
 using tink.CoreApi;
 
 @:allow(tink.io.hl)
-class HlTlsSession {
+class HlTlsSession implements tink.io.TlsSession {
   public final stream:Stream;
   final ssl:Context;
   final ctx:HlTlsContext;

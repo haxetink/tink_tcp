@@ -9,7 +9,7 @@ using tink.CoreApi;
 
 typedef HlReadOutcome = Outcome<Null<Chunk>, Error>;
 
-class HlUvStream {
+class HlUvStream implements tink.io.DuplexStream {
   final name:String;
   final stream:Stream;
   final chunkSize:Int;

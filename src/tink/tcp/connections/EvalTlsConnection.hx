@@ -4,9 +4,9 @@ package tink.tcp.connections;
 import tink.tcp.Connection;
 import tink.io.Source;
 import tink.io.Sink;
+import tink.io.TlsSink;
+import tink.io.TlsSource;
 import tink.io.eval.EvalTlsSession;
-import tink.io.eval.EvalTlsSource;
-import tink.io.eval.EvalTlsSink;
 
 class EvalTlsConnection implements Connection {
   public final source:RealSource;
@@ -24,8 +24,8 @@ class EvalTlsConnection implements Connection {
       case Ok(addr): (addr : Endpoint);
       case Error(_): {host: '?', port: 0};
     };
-    source = EvalTlsSource.wrap('Incoming stream of $name', session);
-    sink = EvalTlsSink.wrap('Outcoming stream of $name', session);
+    source = TlsSource.wrap('Incoming stream of $name', session);
+    sink = TlsSink.wrap('Outcoming stream of $name', session);
   }
 }
 #end

@@ -4,10 +4,10 @@ package tink.tcp.connections;
 import uv.Tcp;
 import tink.io.Source;
 import tink.io.Sink;
+import tink.io.DuplexSink;
+import tink.io.DuplexSource;
 import tink.tcp.Connection;
 import tink.io.cpp.CppUvStream;
-import tink.io.cpp.CppUvSource;
-import tink.io.cpp.CppUvSink;
 
 class CppConnection implements Connection {
   public final source:RealSource;
@@ -19,8 +19,8 @@ class CppConnection implements Connection {
     this.local = local ?? endpointFrom(tcp.getSockAddress());
     this.peer = peer ?? endpointFrom(tcp.getPeerAddress());
     final io = new CppUvStream(name, tcp);
-    source = CppUvSource.wrap('Incoming stream of $name', io);
-    sink = CppUvSink.wrap('Outcoming stream of $name', io);
+    source = DuplexSource.wrap('Incoming stream of $name', io);
+    sink = DuplexSink.wrap('Outcoming stream of $name', io);
   }
 
   static function endpointFrom(addr:{host:String, port:Int}):Endpoint {

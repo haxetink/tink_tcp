@@ -13,7 +13,7 @@ using eval.luv.Buffer;
 using eval.luv.Stream;
 
 @:allow(tink.io.eval)
-class EvalTlsSession {
+class EvalTlsSession implements tink.io.TlsSession {
   public final tcp:Tcp;
   final ssl:Ssl;
   final ctx:EvalTlsContext;

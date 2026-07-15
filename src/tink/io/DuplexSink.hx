@@ -1,5 +1,4 @@
-#if hl
-package tink.io.hl;
+package tink.io;
 
 import tink.Chunk;
 import tink.io.Sink;
@@ -8,11 +7,10 @@ import tink.streams.Stream;
 using tink.io.PipeResult;
 using tink.CoreApi;
 
-@:allow(tink.io.hl)
-class HlUvSink extends SinkBase<Error, Noise> {
-  final target:HlUvStream;
+class DuplexSink extends SinkBase<Error, Noise> {
+  final target:DuplexStream;
 
-  function new(target:HlUvStream) {
+  function new(target:DuplexStream) {
     this.target = target;
   }
 
@@ -31,7 +29,6 @@ class HlUvSink extends SinkBase<Error, Noise> {
     return ret.map((c) -> c.toResult(Noise));
   }
 
-  static public inline function wrap(name:String, target:HlUvStream):RealSink
-    return new HlUvSink(target);
+  static public inline function wrap(name:String, target:DuplexStream):RealSink
+    return new DuplexSink(target);
 }
-#end

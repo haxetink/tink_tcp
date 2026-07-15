@@ -29,7 +29,7 @@ private typedef EndCtx = {
 /**
   Async TCP stream over linc_uv. Callbacks use `setData` + static Callables.
 **/
-class CppUvStream {
+class CppUvStream implements tink.io.DuplexStream {
   final name:String;
   public final tcp:Tcp;
   final stream:Stream;

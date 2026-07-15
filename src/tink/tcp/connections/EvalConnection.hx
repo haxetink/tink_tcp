@@ -4,9 +4,9 @@ package tink.tcp.connections;
 import eval.luv.Tcp;
 import tink.io.Source;
 import tink.io.Sink;
+import tink.io.DuplexSink;
+import tink.io.DuplexSource;
 import tink.tcp.Connection;
-import tink.io.luv.LuvSource;
-import tink.io.luv.LuvSink;
 import tink.io.luv.WrappedStream;
 
 class EvalConnection implements Connection {
@@ -25,8 +25,8 @@ class EvalConnection implements Connection {
 			case Error(_): { host: '?', port: 0 };
 		};
 		final io = new WrappedStream(name, native);
-		source = LuvSource.wrap('Incoming stream of $name', io);
-		sink = LuvSink.wrap('Outcoming stream of $name', io);
+		source = DuplexSource.wrap('Incoming stream of $name', io);
+		sink = DuplexSink.wrap('Outcoming stream of $name', io);
 	}
 }
 #end

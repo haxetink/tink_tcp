@@ -29,7 +29,7 @@ private typedef TlsShutdownCtx = {
 };
 
 @:allow(tink.io.cpp)
-class CppTlsSession {
+class CppTlsSession implements tink.io.TlsSession {
   public final tcp:Tcp;
   final stream:Stream;
   final ssl:TlsSslPtr;
