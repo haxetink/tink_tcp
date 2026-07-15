@@ -1,0 +1,5 @@
+-cp ${SCOPE_DIR}/../linc_uv
+-cp ${SCOPE_DIR}/../linc_uv/src
+-D linc_uv=0.1.0
+${SCOPE_DIR}/../linc_uv/extraParams.hxml
+--macro Sys.println("haxe_libraries/linc_uv.hxml:2: [Warning] Using dev version of library linc_uv")

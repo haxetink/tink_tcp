@@ -21,6 +21,8 @@ class EchoTest {
     new tink.tcp.clients.EvalClient();
     #elseif hl
     new tink.tcp.clients.HlClient();
+    #elseif cpp
+    new tink.tcp.clients.CppClient();
     #else
     new tink.tcp.clients.NodeClient();
     #end

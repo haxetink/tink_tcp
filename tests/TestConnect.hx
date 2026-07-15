@@ -16,6 +16,8 @@ class TestConnect {
     (new tink.tcp.clients.EvalClient() : Client);
     #elseif hl
     (new tink.tcp.clients.HlClient() : Client);
+    #elseif cpp
+    (new tink.tcp.clients.CppClient() : Client);
     #else
     (new tink.tcp.clients.NodeClient() : Client);
     #end

@@ -41,6 +41,8 @@ Platform implementations:
 - Node.js: `tink.tcp.clients.NodeClient`, `tink.tcp.servers.NodeServer`
 - JVM: `tink.tcp.clients.JavaClient`, `tink.tcp.servers.JavaServer`
 - Eval (interp): `tink.tcp.clients.EvalClient`, `tink.tcp.servers.EvalServer`, `tink.tcp.eval.EvalLoop`
+- HashLink: `tink.tcp.clients.HlClient`, `tink.tcp.servers.HlServer`, `tink.tcp.hl.HlLoop`
+- C++ (hxcpp + linc_uv): `tink.tcp.clients.CppClient`, `tink.tcp.servers.CppServer`
 
 Construct clients explicitly at the call site:
 
@@ -49,6 +51,10 @@ Construct clients explicitly at the call site:
   final client = new tink.tcp.clients.JavaClient();
 #elseif eval
   final client = new tink.tcp.clients.EvalClient();
+#elseif hl
+  final client = new tink.tcp.clients.HlClient();
+#elseif cpp
+  final client = new tink.tcp.clients.CppClient();
 #else
   final client = new tink.tcp.clients.NodeClient();
 #end
@@ -59,7 +65,7 @@ client.connect({ host: 'example.com', port: 80 }).handle(o -> switch o {
 });
 ```
 
-TLS is opt-in via an explicit `tls` option on `Server.bind` and `Client.connect`. It is implemented on **Node.js**, **JVM**, and **eval** (when built with an Haxe version that exposes eval mbedtls `set_bio`, `own_cert`, and ALPN). PKCS#8 private keys only (`BEGIN PRIVATE KEY`). CI `interp` TLS tests are gated behind `-D eval_tls` until the updated Haxe build is available upstream.
+TLS is opt-in via an explicit `tls` option on `Server.bind` and `Client.connect`. It is implemented on **Node.js**, **JVM**, **HashLink**, **C++** (owned mbedtls over libuv), and **eval** (when built with an Haxe version that exposes eval mbedtls `set_bio`, `own_cert`, and ALPN). PKCS#8 private keys only (`BEGIN PRIVATE KEY`). CI `interp` TLS tests are gated behind `-D eval_tls` until the updated Haxe build is available upstream.
 
 ```haxe
 // Server: requires cert + key (see TlsServerOptions in tink.tcp.Tls)
@@ -70,3 +76,10 @@ client.connect({ host: 'example.com', port: 443 }, { tls: { ca: caBytes, servern
 ```
 
 Eval TLS local test run: `lix run travix interp -D eval_tls`
+
+C++ requires `-lib linc_uv` (and hxcpp). Example: `lix run travix cpp`
+
+## TODO
+
+- **cpp DNS:** `CppClient` / `CppServer` currently resolve hostnames synchronously via `sys.net.Host`. Switch to async `uv_getaddrinfo` (`linc_uv` `GetAddrInfo`) so connect/bind do not block the event loop.
+- **cpp ALPN:** TLS ALPN options are accepted in the public API but not yet wired on cpp (throws if `alpn` is set).

@@ -1,6 +1,7 @@
 tests.hxml
 
--js bin/neko/tests.n
+# -neko bin/neko/tests.n
+--jvm bin/jvm/tests.jar
 
 -lib travix
 -lib tink_tcp

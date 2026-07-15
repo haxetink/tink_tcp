@@ -33,6 +33,8 @@ abstract Server(ServerObject) from ServerObject {
     return tink.tcp.servers.EvalServer.bind(target, options);
     #elseif hl
     return tink.tcp.servers.HlServer.bind(target, options);
+    #elseif cpp
+    return tink.tcp.servers.CppServer.bind(target, options);
     // #elseif ((neko || java || cpp) && tink_runloop)
     // return SysServer.bind(port);
     #else
