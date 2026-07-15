@@ -6,6 +6,7 @@ import tink.tcp.Tls.TlsServerOptions;
 import tink.tcp.cpp.mbedtls.Mbedtls;
 import tink.tcp.cpp.mbedtls.NativeTls;
 import tink.tcp.cpp.mbedtls.NativeTls.TlsConfigPtr;
+import tink.tcp.tls.TlsAuth;
 
 abstract CppTlsServerConfig(TlsServerOptions) from TlsServerOptions {
   public function createContext():CppTlsContext {
@@ -31,20 +32,16 @@ abstract CppTlsServerConfig(TlsServerOptions) from TlsServerOptions {
       }
     }
 
-    NativeTls.configSetAuthmode(conf, serverAuthmode());
+    NativeTls.configSetAuthmode(conf, switch TlsAuth.serverMode(this) {
+      case Required: Mbedtls.VERIFY_REQUIRED;
+      case Optional: Mbedtls.VERIFY_OPTIONAL;
+      case None: Mbedtls.VERIFY_NONE;
+    });
 
     if (this.alpn != null && this.alpn.length > 0)
       throw new haxe.Exception('ALPN is not yet supported on the cpp target');
 
     return new CppTlsContext(conf);
-  }
-
-  function serverAuthmode():Int {
-    if (this.requestCert == true)
-      return this.rejectUnauthorized == true ? Mbedtls.VERIFY_REQUIRED : Mbedtls.VERIFY_OPTIONAL;
-    if (this.rejectUnauthorized == true)
-      return Mbedtls.VERIFY_OPTIONAL;
-    return Mbedtls.VERIFY_NONE;
   }
 }
 #end

@@ -50,7 +50,7 @@ class EvalClient implements Client {
                 final cfg:EvalTlsClientConfig = tls;
                 final ctx = cfg.createContext();
                 final ssl = ctx.newSsl();
-                cfg.configureSsl(ssl, ctx);
+                cfg.configureSsl(ssl);
                 final session = new EvalTlsSession(tcp, ssl, ctx);
                 session.handshake().handle(o -> switch o {
                   case Success(_):

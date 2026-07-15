@@ -2,6 +2,7 @@
 package tink.tcp.tls.java;
 
 import haxe.io.Bytes;
+import tink.tcp.tls.TlsPem;
 
 class JavaTlsPem {
   public static function parseCertificate(pem:Bytes):java.security.cert.X509Certificate {
@@ -11,10 +12,8 @@ class JavaTlsPem {
   }
 
   public static function parsePrivateKey(pem:Bytes):java.security.PrivateKey {
-    final text = pem.toString();
-    if (text.indexOf("BEGIN PRIVATE KEY") < 0)
-      throw new haxe.Exception('Unsupported key format: expected PKCS#8 PEM (BEGIN PRIVATE KEY)');
-    final decoded = haxe.crypto.Base64.decode(stripPemBody(text));
+    TlsPem.requirePkcs8(pem);
+    final decoded = haxe.crypto.Base64.decode(stripPemBody(pem.toString()));
     final spec = new java.security.spec.PKCS8EncodedKeySpec(decoded.getData());
     final factory = java.security.KeyFactory.getInstance("RSA");
     return factory.generatePrivate(spec);

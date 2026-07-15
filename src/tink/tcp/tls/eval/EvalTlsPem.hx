@@ -3,6 +3,7 @@ package tink.tcp.tls.eval;
 
 import haxe.io.Bytes;
 import mbedtls.*;
+import tink.tcp.tls.TlsPem;
 
 class EvalTlsPem {
   public static function parseCert(pem:Bytes):X509Crt {
@@ -14,8 +15,7 @@ class EvalTlsPem {
   }
 
   public static function parseKey(pem:Bytes, drbg:CtrDrbg):PkContext {
-    if (pem.toString().indexOf('BEGIN PRIVATE KEY') < 0)
-      throw new haxe.Exception('Unsupported key format: expected PKCS#8 PEM (BEGIN PRIVATE KEY)');
+    TlsPem.requirePkcs8(pem);
     final key = new PkContext();
     final r = key.parse_key(pem, null, drbg);
     if (r != 0)

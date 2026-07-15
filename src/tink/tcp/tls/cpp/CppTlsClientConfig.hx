@@ -7,6 +7,7 @@ import tink.tcp.cpp.mbedtls.Mbedtls;
 import tink.tcp.cpp.mbedtls.NativeTls;
 import tink.tcp.cpp.mbedtls.NativeTls.TlsConfigPtr;
 import tink.tcp.cpp.mbedtls.NativeTls.TlsSslPtr;
+import tink.tcp.tls.TlsAuth;
 
 abstract CppTlsClientConfig(TlsClientOptions) from TlsClientOptions {
   public function createContext():CppTlsContext {
@@ -14,12 +15,10 @@ abstract CppTlsClientConfig(TlsClientOptions) from TlsClientOptions {
     if (conf == null)
       throw new haxe.Exception('mbedtls config create failed');
 
-    if (this.rejectUnauthorized == false)
-      NativeTls.configSetAuthmode(conf, Mbedtls.VERIFY_NONE);
-    else if (this.ca != null)
-      NativeTls.configSetAuthmode(conf, Mbedtls.VERIFY_REQUIRED);
-    else
-      NativeTls.configSetAuthmode(conf, Mbedtls.VERIFY_NONE);
+    NativeTls.configSetAuthmode(conf, switch TlsAuth.clientMode(this) {
+      case Required: Mbedtls.VERIFY_REQUIRED;
+      case Optional | None: Mbedtls.VERIFY_NONE;
+    });
 
     if (this.ca != null) {
       final pem = CppTlsPem.asCString(this.ca);

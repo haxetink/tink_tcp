@@ -4,17 +4,16 @@ package tink.tcp.servers;
 import tink.tcp.Server;
 import tink.tcp.Server.BindOptions;
 import tink.tcp.Connection;
-import tink.tcp.Tls.TlsServerOptions;
 import tink.tcp.connections.JavaConnection;
 import tink.tcp.connections.JavaTlsConnection;
-import tink.tcp.tls.java.JavaTlsPem;
+import tink.tcp.tls.java.JavaTlsServerConfig;
 import tink.io.java.JavaTlsSession;
 import tink.io.java.OnMainThread;
 import java.nio.channels.AsynchronousServerSocketChannel as Native;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import java.lang.Throwable;
-import java.javax.net.ssl.*;
+import java.javax.net.ssl.SSLContext;
 
 using tink.CoreApi;
 
@@ -88,46 +87,6 @@ private class AcceptedHandler implements CompletionHandler<AsynchronousSocketCha
   public function failed(exc:Throwable, server:JavaServer) {
     // TODO: handle java.nio.channels.AsynchronousCloseException? it is thrown when server is closed while accept() is still pending
     // TODO: report other errors
-  }
-}
-
-abstract JavaTlsServerConfig(TlsServerOptions) from TlsServerOptions {
-  public function createContext():SSLContext {
-    final ctx = SSLContext.getInstance("TLS");
-    final ks = JavaTlsPem.keyStoreFromCertKey(this.cert, this.key);
-    final kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-    kmf.init(ks, JavaTlsPem.storePassword());
-    final trustManagers = if (this.ca != null) {
-      final ts = JavaTlsPem.trustStoreFromCa(this.ca);
-      final tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-      tmf.init(ts);
-      tmf.getTrustManagers();
-    } else null;
-    ctx.init(kmf.getKeyManagers(), trustManagers, new java.security.SecureRandom());
-    return ctx;
-  }
-
-  public function configureEngine(engine:SSLEngine):Void {
-    engine.setUseClientMode(false);
-    if (this.requestCert == true)
-      engine.setNeedClientAuth(true);
-    else if (this.rejectUnauthorized == true)
-      engine.setWantClientAuth(true);
-    final params = engine.getSSLParameters();
-    if (this.alpn != null)
-      JavaSsl.setApplicationProtocols(params, this.alpn);
-    engine.setSSLParameters(params);
-  }
-}
-
-private class JavaSsl {
-  public static function setApplicationProtocols(params:SSLParameters, protocols:Array<String>):Void {
-    if (protocols == null || protocols.length == 0) return;
-    final cls = java.lang.Class.forName("java.lang.String", true, null);
-    final arr = java.lang.reflect.Array.newInstance(cls, protocols.length);
-    for (i in 0...protocols.length)
-      java.lang.reflect.Array.set(arr, i, protocols[i]);
-    untyped params.setApplicationProtocols(arr);
   }
 }
 #end

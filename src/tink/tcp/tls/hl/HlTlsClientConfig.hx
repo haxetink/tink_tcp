@@ -2,6 +2,7 @@
 package tink.tcp.tls.hl;
 
 import tink.tcp.Tls.TlsClientOptions;
+import tink.tcp.tls.TlsAuth;
 
 @:access(sys.ssl.Certificate)
 @:access(sys.ssl.Key)
@@ -9,12 +10,10 @@ abstract HlTlsClientConfig(TlsClientOptions) from TlsClientOptions {
   public function createContext():HlTlsContext {
     final conf = new sys.ssl.Context.Config(false);
 
-    if (this.rejectUnauthorized == false)
-      conf.setVerify(0);
-    else if (this.ca != null)
-      conf.setVerify(1);
-    else
-      conf.setVerify(0);
+    conf.setVerify(switch TlsAuth.clientMode(this) {
+      case Required: 1;
+      case Optional | None: 0;
+    });
 
     final ctx = new HlTlsContext(conf);
 

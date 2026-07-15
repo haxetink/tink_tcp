@@ -3,6 +3,7 @@ package tink.tcp.tls.eval;
 
 import mbedtls.*;
 import tink.tcp.Tls.TlsClientOptions;
+import tink.tcp.tls.TlsAuth;
 
 abstract EvalTlsClientConfig(TlsClientOptions) from TlsClientOptions {
   public function createContext():EvalTlsContext {
@@ -19,10 +20,10 @@ abstract EvalTlsClientConfig(TlsClientOptions) from TlsClientOptions {
 
     conf.rng(drbg);
 
-    if (this.rejectUnauthorized == false)
-      conf.authmode(SslAuthmode.SSL_VERIFY_NONE);
-    else if (this.ca != null)
-      conf.authmode(SslAuthmode.SSL_VERIFY_REQUIRED);
+    conf.authmode(switch TlsAuth.clientMode(this) {
+      case Required: SslAuthmode.SSL_VERIFY_REQUIRED;
+      case Optional | None: SslAuthmode.SSL_VERIFY_NONE;
+    });
 
     if (this.ca != null)
       conf.ca_chain(EvalTlsPem.parseCert(this.ca));
@@ -44,7 +45,7 @@ abstract EvalTlsClientConfig(TlsClientOptions) from TlsClientOptions {
     return new EvalTlsContext(conf, entropy, drbg);
   }
 
-  public function configureSsl(ssl:Ssl, ctx:EvalTlsContext):Void {
+  public function configureSsl(ssl:Ssl):Void {
     if (this.servername != null) {
       final r = ssl.set_hostname(this.servername);
       if (r != 0)
