@@ -6,7 +6,7 @@ import tink.tcp.Server.BindOptions;
 import tink.tcp.Connection;
 import tink.tcp.connections.JavaConnection;
 import tink.tcp.connections.JavaTlsConnection;
-import tink.tcp.tls.TlsContext;
+import tink.tcp.tls.TlsConfig;
 import tink.io.java.JavaTlsSession;
 import tink.io.java.OnMainThread;
 import java.nio.channels.AsynchronousServerSocketChannel as Native;
@@ -20,7 +20,7 @@ using tink.CoreApi;
 class JavaServer implements ServerObject {
   final native:Native;
   final trigger:SignalTrigger<Connection>;
-  final tls:Null<TlsContext>;
+  final tls:Null<TlsConfig>;
 
   public final connected:Signal<Connection>;
 
@@ -31,7 +31,7 @@ class JavaServer implements ServerObject {
     return addr.getPort();
   }
 
-  public function new(server:Native, ?tls:TlsContext) {
+  public function new(server:Native, ?tls:TlsConfig) {
     this.native = server;
     this.tls = tls;
     connected = trigger = Signal.trigger();
@@ -45,7 +45,7 @@ class JavaServer implements ServerObject {
 
   static public function bind(target:Endpoint, ?options:BindOptions):Promise<Server> {
     return try {
-      final tls:Null<TlsContext> = switch options?.tls {
+      final tls:Null<TlsConfig> = switch options?.tls {
         case null: null;
         case opts: opts;
       };

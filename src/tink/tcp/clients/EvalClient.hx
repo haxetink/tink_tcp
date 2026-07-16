@@ -8,7 +8,7 @@ import tink.tcp.Connection;
 import tink.tcp.connections.EvalConnection;
 import tink.tcp.connections.EvalTlsConnection;
 import tink.tcp.eval.EvalLoop;
-import tink.tcp.tls.TlsContext;
+import tink.tcp.tls.TlsConfig;
 import tink.io.eval.EvalTlsSession;
 
 using tink.CoreApi;
@@ -47,8 +47,8 @@ class EvalClient implements Client {
               resolve((new EvalConnection('Connection to $to', tcp) : Connection));
             } else {
               try {
-                final tlsCtx:TlsContext = tls;
-                final session = new EvalTlsSession(tlsCtx, tcp);
+                final tlsCfg:TlsConfig = tls;
+                final session = new EvalTlsSession(tlsCfg, tcp);
                 session.handshake().handle(o -> switch o {
                   case Success(_):
                     resolve((new EvalTlsConnection('Connection to $to', session) : Connection));

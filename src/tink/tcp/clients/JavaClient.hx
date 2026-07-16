@@ -9,7 +9,7 @@ import tink.tcp.Client.ConnectOptions;
 import tink.tcp.Connection;
 import tink.tcp.connections.JavaConnection;
 import tink.tcp.connections.JavaTlsConnection;
-import tink.tcp.tls.TlsContext;
+import tink.tcp.tls.TlsConfig;
 import tink.io.java.JavaTlsSession;
 import tink.io.java.OnMainThread;
 
@@ -53,8 +53,8 @@ private class ConnectedHandler implements CompletionHandler<java.lang.Void, Asyn
       if (tls == null) {
         cb.invoke(Success(new JavaConnection('Connection to ${socket.getRemoteAddress()}', socket)));
       } else {
-        final tlsCtx:TlsContext = tls;
-        final tlsSession = new JavaTlsSession(tlsCtx, socket, to.host, to.port);
+        final tlsCfg:TlsConfig = tls;
+        final tlsSession = new JavaTlsSession(tlsCfg, socket, to.host, to.port);
         tlsSession.handshake().next(_ -> tlsSession).handle(o -> switch o {
           case Success(s):
             cb.invoke(Success(new JavaTlsConnection('Connection to ${socket.getRemoteAddress()}', s)));

@@ -4,8 +4,8 @@ package tink.io.eval;
 import eval.luv.*;
 import haxe.io.Bytes;
 import mbedtls.Error as MbedtlsError;
-import mbedtls.Ssl;
 import tink.Chunk;
+import tink.tcp.tls.TlsConfig;
 import tink.tcp.tls.TlsContext;
 using tink.CoreApi;
 using eval.luv.Buffer;
@@ -14,9 +14,9 @@ using eval.luv.Stream;
 @:allow(tink.io.eval)
 class EvalTlsSession implements tink.io.TlsSession {
   public final tcp:Tcp;
-  final ssl:Ssl;
-  /** Keeps TlsContext (and entropy/drbg) alive for the session. */
   final context:TlsContext;
+  /** Keeps TlsConfig (and entropy/drbg) alive for the session. */
+  final config:TlsConfig;
 
   var netIn = Bytes.alloc(0);
   var netInPos = 0;
@@ -28,12 +28,12 @@ class EvalTlsSession implements tink.io.TlsSession {
   var readWaiters:Array<Void->Void> = [];
   var writeWaiter:Null<Void->Void>;
 
-  public function new(context:TlsContext, tcp:Tcp) {
+  public function new(config:TlsConfig, tcp:Tcp) {
     this.tcp = tcp;
-    this.context = context;
-    this.ssl = context.newSsl();
+    this.config = config;
+    this.context = config.createContext();
     Handle.ref(tcp);
-    ssl.set_bio(bioSend, bioRecv);
+    context.set_bio(bioSend, bioRecv);
   }
 
   public function handshake():Promise<Noise> {
@@ -77,7 +77,7 @@ class EvalTlsSession implements tink.io.TlsSession {
   function pumpHandshake(onDone:Void->Void, onFail:tink.core.Error->Void) {
     if (closed)
       return;
-    final r = ssl.handshake();
+    final r = context.handshake();
     if (r == 0)
       flushNetOut(onDone);
     else if (r == MbedtlsError.WANT_READ)
@@ -94,7 +94,7 @@ class EvalTlsSession implements tink.io.TlsSession {
       return;
     }
     final buf = Bytes.alloc(0x4000);
-    final r = ssl.read(buf, 0, buf.length);
+    final r = context.read(buf, 0, buf.length);
     if (r > 0) {
       flushNetOut(() -> cb.invoke(Success(buf.sub(0, r))));
     } else if (r == 0) {
@@ -116,7 +116,7 @@ class EvalTlsSession implements tink.io.TlsSession {
       flushNetOut(() -> cb.invoke(Success(Noise)));
       return;
     }
-    final r = ssl.write(data, offset, remaining);
+    final r = context.write(data, offset, remaining);
     if (r > 0)
       flushNetOut(() -> writeBytes(data, offset + r, remaining - r, cb));
     else if (r == MbedtlsError.WANT_READ)

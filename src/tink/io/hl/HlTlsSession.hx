@@ -3,17 +3,17 @@ package tink.io.hl;
 
 import haxe.io.Bytes;
 import hl.uv.Stream;
-import sys.ssl.Context;
 import tink.Chunk;
+import tink.tcp.tls.TlsConfig;
 import tink.tcp.tls.TlsContext;
 using tink.CoreApi;
 
 @:allow(tink.io.hl)
 class HlTlsSession implements tink.io.TlsSession {
   public final stream:Stream;
-  final ssl:Context;
-  /** Keeps TlsContext (and cert roots) alive for the session. */
   final context:TlsContext;
+  /** Keeps TlsConfig (and cert roots) alive for the session. */
+  final config:TlsConfig;
 
   var netIn = Bytes.alloc(0);
   var netInPos = 0;
@@ -27,16 +27,16 @@ class HlTlsSession implements tink.io.TlsSession {
 
   var bio:hl.NativeArray<Dynamic>;
 
-  public function new(context:TlsContext, stream:Stream) {
+  public function new(config:TlsConfig, stream:Stream) {
     this.stream = stream;
-    this.context = context;
-    this.ssl = context.newSsl();
+    this.config = config;
+    this.context = config.createContext();
 
     bio = new hl.NativeArray(3);
     bio[0] = this;
     bio[1] = staticBioRead;
     bio[2] = staticBioWrite;
-    ssl.setBio(bio);
+    context.setBio(bio);
   }
 
   static function staticBioRead(s:HlTlsSession, buf:hl.Bytes, len:Int):Int {
@@ -101,7 +101,7 @@ class HlTlsSession implements tink.io.TlsSession {
   function pumpHandshake(onDone:Void->Void, onFail:tink.core.Error->Void) {
     if (closed)
       return;
-    final r = ssl.handshake();
+    final r = context.handshake();
     if (r == 0) {
       flushNetOut(onDone);
     } else if (r == -1) {
@@ -123,7 +123,7 @@ class HlTlsSession implements tink.io.TlsSession {
       return;
     }
     final buf = Bytes.alloc(0x4000);
-    final r = ssl.recv(buf, 0, buf.length);
+    final r = context.recv(buf, 0, buf.length);
     if (r > 0) {
       flushNetOut(() -> cb.invoke(Success(buf.sub(0, r))));
     } else if (r == 0) {
@@ -147,7 +147,7 @@ class HlTlsSession implements tink.io.TlsSession {
       flushNetOut(() -> cb.invoke(Success(Noise)));
       return;
     }
-    final r = ssl.send(data, offset, remaining);
+    final r = context.send(data, offset, remaining);
     if (r > 0) {
       flushNetOut(() -> writeBytes(data, offset + r, remaining - r, cb));
     } else if (r == -1) {

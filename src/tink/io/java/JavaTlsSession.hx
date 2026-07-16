@@ -8,6 +8,7 @@ import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import haxe.io.Bytes;
 import tink.Chunk;
+import tink.tcp.tls.TlsConfig;
 import tink.tcp.tls.TlsContext;
 
 using tink.CoreApi;
@@ -17,21 +18,21 @@ class JavaTlsSession {
   static final emptyApp = ByteBuffer.allocate(0);
 
   public final channel:AsynchronousSocketChannel;
-  final engine:java.javax.net.ssl.SSLEngine;
-  /** Keeps TlsContext (and SSLContext) alive for the session. */
   final context:TlsContext;
+  /** Keeps TlsConfig (and SSLContext) alive for the session. */
+  final config:TlsConfig;
   final executor:java.util.concurrent.ExecutorService;
   var netIn:ByteBuffer;
   var netOut:ByteBuffer;
   var appIn:ByteBuffer;
 
-  public function new(context:TlsContext, channel:AsynchronousSocketChannel, ?host:String, ?port:Int) {
+  public function new(config:TlsConfig, channel:AsynchronousSocketChannel, ?host:String, ?port:Int) {
     this.channel = channel;
-    this.context = context;
-    this.engine = context.newEngine(host, port);
+    this.config = config;
+    this.context = config.createContext(host, port);
     this.executor = java.util.concurrent.Executors.newSingleThreadExecutor();
-    final packetSize = engine.getSession().getPacketBufferSize();
-    final appSize = engine.getSession().getApplicationBufferSize();
+    final packetSize = context.getSession().getPacketBufferSize();
+    final appSize = context.getSession().getApplicationBufferSize();
     netIn = ByteBuffer.allocate(packetSize);
     netIn.limit(0);
     netOut = ByteBuffer.allocate(packetSize);
@@ -76,7 +77,7 @@ class JavaTlsSession {
         }
         netIn.flip();
         appIn.clear();
-        final result = engine.unwrap(netIn, appIn);
+        final result = context.unwrap(netIn, appIn);
         netIn.compact();
         switch Std.string(result.getStatus()) {
           case "BUFFER_UNDERFLOW":
@@ -100,7 +101,7 @@ class JavaTlsSession {
           cb.invoke(Success(bufferToChunk(appIn)));
           return;
         }
-        if (engine.isInboundDone()) {
+        if (context.isInboundDone()) {
           cb.invoke(Success(null));
           return;
         }
@@ -112,8 +113,8 @@ class JavaTlsSession {
 
   function shutdownOnEngine(cb:Callback<Outcome<Noise, Error>>) {
     try {
-      if (!engine.isOutboundDone())
-        engine.closeOutbound();
+      if (!context.isOutboundDone())
+        context.closeOutbound();
       flushCloseNotify(cb);
     } catch (e:Dynamic) {
       cb.invoke(Failure(Error.withData(Std.string(e), e)));
@@ -123,7 +124,7 @@ class JavaTlsSession {
   function flushCloseNotify(cb:Callback<Outcome<Noise, Error>>) {
     try {
       netOut.clear();
-      final result = engine.wrap(emptyApp, netOut);
+      final result = context.wrap(emptyApp, netOut);
       if (netOut.position() > 0) {
         netOut.flip();
         netWrite(netOut, () -> executor.execute(new ExecutorRunnable(() -> flushCloseNotify(cb))));
@@ -145,10 +146,10 @@ class JavaTlsSession {
         cb.invoke(Success(Noise));
         return;
       }
-      final limit = Std.int(Math.min(remaining, engine.getSession().getApplicationBufferSize()));
+      final limit = Std.int(Math.min(remaining, context.getSession().getApplicationBufferSize()));
       final appBuf = ByteBuffer.wrap(data.getData(), offset, limit);
       netOut.clear();
-      final result = engine.wrap(appBuf, netOut);
+      final result = context.wrap(appBuf, netOut);
       switch Std.string(result.getStatus()) {
         case "BUFFER_OVERFLOW":
           netOut = enlarge(netOut);
@@ -184,8 +185,8 @@ class JavaTlsSession {
   }
 
   function blockingHandshake() {
-    engine.beginHandshake();
-    var status = Std.string(engine.getHandshakeStatus());
+    context.beginHandshake();
+    var status = Std.string(context.getHandshakeStatus());
     while (true) {
       status = switch status {
         case "NEED_UNWRAP":
@@ -194,7 +195,7 @@ class JavaTlsSession {
           blockingWrap();
         case "NEED_TASK":
           runDelegatedTasksSync();
-          Std.string(engine.getHandshakeStatus());
+          Std.string(context.getHandshakeStatus());
         case "FINISHED" | "NOT_HANDSHAKING":
           return;
         case other:
@@ -209,7 +210,7 @@ class JavaTlsSession {
         blockingNetRead();
       netIn.flip();
       appIn.clear();
-      final result = engine.unwrap(netIn, appIn);
+      final result = context.unwrap(netIn, appIn);
       netIn.compact();
       final hs = Std.string(result.getHandshakeStatus());
       switch Std.string(result.getStatus()) {
@@ -235,7 +236,7 @@ class JavaTlsSession {
   function blockingWrap():String {
     while (true) {
       netOut.clear();
-      final result = engine.wrap(emptyApp, netOut);
+      final result = context.wrap(emptyApp, netOut);
       final hs = Std.string(result.getHandshakeStatus());
       switch Std.string(result.getStatus()) {
         case "BUFFER_OVERFLOW":
@@ -283,7 +284,7 @@ class JavaTlsSession {
 
   function runDelegatedTasksSync() {
     var task:java.lang.Runnable;
-    while ((task = engine.getDelegatedTask()) != null)
+    while ((task = context.getDelegatedTask()) != null)
       task.run();
   }
 

@@ -9,7 +9,7 @@ import tink.tcp.Connection;
 import tink.tcp.connections.HlConnection;
 import tink.tcp.connections.HlTlsConnection;
 import tink.tcp.hl.HlLoop;
-import tink.tcp.tls.TlsContext;
+import tink.tcp.tls.TlsConfig;
 import tink.io.hl.HlTlsSession;
 
 using tink.CoreApi;
@@ -18,7 +18,7 @@ class HlServer implements ServerObject {
   final native:Tcp;
   final loop:Loop;
   final trigger:SignalTrigger<Connection>;
-  final tls:Null<TlsContext>;
+  final tls:Null<TlsConfig>;
   final boundPort:Int;
   final boundHost:String;
 
@@ -29,7 +29,7 @@ class HlServer implements ServerObject {
   function get_port()
     return boundPort;
 
-  function new(server:Tcp, loop:Loop, trigger:SignalTrigger<Connection>, boundHost:String, boundPort:Int, ?tls:TlsContext) {
+  function new(server:Tcp, loop:Loop, trigger:SignalTrigger<Connection>, boundHost:String, boundPort:Int, ?tls:TlsConfig) {
     this.native = server;
     this.loop = loop;
     this.trigger = trigger;
@@ -69,11 +69,11 @@ class HlServer implements ServerObject {
 
   static public function bind(target:Endpoint, ?options:BindOptions):Promise<Server> {
     final l = options?.loop ?? HlLoop.current();
-    final tls:Null<TlsContext> = switch options?.tls {
+    final tls:Null<TlsConfig> = switch options?.tls {
       case null: null;
       case opts:
         try {
-          final cfg:TlsContext = opts;
+          final cfg:TlsConfig = opts;
           cfg;
         } catch (e:haxe.Exception)
           return Future.sync(Failure(Error.withData(e.message, e)));

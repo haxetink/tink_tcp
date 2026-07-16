@@ -6,7 +6,7 @@ import haxe.io.Bytes;
 import tink.Chunk;
 import tink.tcp.cpp.mbedtls.Mbedtls;
 import tink.tcp.cpp.mbedtls.NativeTls;
-import tink.tcp.cpp.mbedtls.NativeTls.TlsSslPtr;
+import tink.tcp.tls.TlsConfig;
 import tink.tcp.tls.TlsContext;
 import uv.*;
 import uv.Native.UvHandle;
@@ -32,9 +32,9 @@ private typedef TlsShutdownCtx = {
 class CppTlsSession implements tink.io.TlsSession {
   public final tcp:Tcp;
   final stream:Stream;
-  final ssl:TlsSslPtr;
-  /** Keeps TlsContext (and native conf) alive for the session. */
   final context:TlsContext;
+  /** Keeps TlsConfig (and native conf) alive for the session. */
+  final config:TlsConfig;
 
   var netIn = Bytes.alloc(0);
   var netInPos = 0;
@@ -46,15 +46,15 @@ class CppTlsSession implements tink.io.TlsSession {
   var readWaiters:Array<Void->Void> = [];
   var writeWaiter:Null<Void->Void>;
 
-  public function new(context:TlsContext, tcp:Tcp) {
+  public function new(config:TlsConfig, tcp:Tcp) {
     this.tcp = tcp;
     this.stream = tcp.asStream();
-    this.context = context;
-    this.ssl = context.newSsl();
+    this.config = config;
+    this.context = config.createContext();
     stream.asHandle().setData(this);
     stream.asHandle().ref();
     final bioCtx:Star<cpp.Void> = untyped __cpp__('(void*){0}.GetPtr()', this);
-    NativeTls.sslSetBio(ssl, bioCtx, Callable.fromStaticFunction(bioSend), Callable.fromStaticFunction(bioRecv));
+    NativeTls.sslSetBio(context, bioCtx, Callable.fromStaticFunction(bioSend), Callable.fromStaticFunction(bioRecv));
   }
 
   @:unreflective
@@ -122,7 +122,7 @@ class CppTlsSession implements tink.io.TlsSession {
   function pumpHandshake(onDone:Void->Void, onFail:Error->Void) {
     if (closed)
       return;
-    final r = NativeTls.sslHandshake(ssl);
+    final r = NativeTls.sslHandshake(context);
     if (r == 0)
       flushNetOut(onDone);
     else if (r == NativeTls.wantRead())
@@ -140,7 +140,7 @@ class CppTlsSession implements tink.io.TlsSession {
     }
     final buf = Bytes.alloc(0x4000);
     final ptr:Star<UInt8> = untyped __cpp__('(unsigned char*){0}->GetBase()', buf.getData());
-    final r = NativeTls.sslRead(ssl, ptr, cast buf.length);
+    final r = NativeTls.sslRead(context, ptr, cast buf.length);
     if (r > 0)
       flushNetOut(() -> cb.invoke(Success(buf.sub(0, r))));
     else if (r == 0)
@@ -162,7 +162,7 @@ class CppTlsSession implements tink.io.TlsSession {
       return;
     }
     final ptr:ConstStar<UInt8> = untyped __cpp__('(const unsigned char*){0}->GetBase() + {1}', data.getData(), offset);
-    final r = NativeTls.sslWrite(ssl, ptr, cast remaining);
+    final r = NativeTls.sslWrite(context, ptr, cast remaining);
     if (r > 0)
       flushNetOut(() -> writeBytes(data, offset + r, remaining - r, cb));
     else if (r == NativeTls.wantRead())
