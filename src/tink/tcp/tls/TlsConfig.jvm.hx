@@ -5,8 +5,7 @@ import java.javax.net.ssl.*;
 import tink.tcp.Tls.TlsClientOptions;
 import tink.tcp.Tls.TlsServerOptions;
 import tink.tcp.tls.TlsAuth.TlsAuthMode;
-import tink.tcp.tls.java.JavaSsl;
-import tink.tcp.tls.java.TrustAllManager;
+
 using tink.CoreApi;
 
 class TlsConfig {
@@ -17,14 +16,7 @@ class TlsConfig {
   final rejectUnauthorized:Bool;
   final serverAuth:TlsAuthMode;
 
-  function new(
-    ctx:SSLContext,
-    isClient:Bool,
-    serverAuth:TlsAuthMode,
-    ?servername:String,
-    ?alpn:Array<String>,
-    rejectUnauthorized:Bool = true
-  ) {
+  function new(ctx:SSLContext, isClient:Bool, serverAuth:TlsAuthMode, ?servername:String, ?alpn:Array<String>, rejectUnauthorized:Bool = true) {
     this.ctx = ctx;
     this.isClient = isClient;
     this.servername = servername;
@@ -44,7 +36,7 @@ class TlsConfig {
       } else null;
       final trustManagers = switch TlsAuth.clientMode(options) {
         case None:
-          JavaSsl.trustManagerArray(new TrustAllManager());
+          trustManagerArray(new TrustAllManager());
         case Required:
           final ts = trustStoreFromCa(options.ca);
           final tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
@@ -91,7 +83,7 @@ class TlsConfig {
       if (rejectUnauthorized && servername != null)
         params.setEndpointIdentificationAlgorithm("HTTPS");
       if (alpn != null)
-        JavaSsl.setApplicationProtocols(params, alpn);
+        setApplicationProtocols(params, alpn);
       engine.setSSLParameters(params);
       return engine;
     } else {
@@ -106,7 +98,7 @@ class TlsConfig {
       }
       final params = engine.getSSLParameters();
       if (alpn != null)
-        JavaSsl.setApplicationProtocols(params, alpn);
+        setApplicationProtocols(params, alpn);
       engine.setSSLParameters(params);
       return engine;
     }
@@ -162,11 +154,37 @@ class TlsConfig {
   static function stripPemBody(text:String):String {
     final lines = text.split("\n");
     final buf = new StringBuf();
-    for (line in lines) {
+    for(line in lines) {
       final trimmed = StringTools.trim(line);
       if (trimmed.length == 0 || trimmed.indexOf("-----") == 0) continue;
       buf.add(trimmed);
     }
     return buf.toString();
   }
+
+  static function setApplicationProtocols(params:SSLParameters, protocols:Array<String>):Void {
+    if (protocols == null || protocols.length == 0) return;
+    final cls = java.lang.Class.forName("java.lang.String", true, null);
+    final arr = java.lang.reflect.Array.newInstance(cls, protocols.length);
+    for(i in 0...protocols.length)
+      java.lang.reflect.Array.set(arr, i, protocols[i]);
+    untyped params.setApplicationProtocols(arr);
+  }
+
+  static function trustManagerArray(tm:TrustManager):Dynamic {
+    final cls = java.lang.Class.forName("javax.net.ssl.TrustManager", true, null);
+    final arr = java.lang.reflect.Array.newInstance(cls, 1);
+    java.lang.reflect.Array.set(arr, 0, tm);
+    return arr;
+  }
+}
+
+class TrustAllManager implements X509TrustManager {
+  public function new() {}
+
+  public function checkClientTrusted(chain, authType) {}
+
+  public function checkServerTrusted(chain, authType) {}
+
+  public function getAcceptedIssuers() return null;
 }
