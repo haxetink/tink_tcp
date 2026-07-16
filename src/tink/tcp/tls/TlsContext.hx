@@ -1,5 +1,13 @@
 package tink.tcp.tls;
 
-// Required base module. Target typedefs live in:
-// TlsContext.cpp.hx / .eval.hx / .hl.hx / .jvm.hx
-extern class TlsContext {}
+#if cpp
+typedef TlsContext = tink.tcp.cpp.mbedtls.NativeTls.TlsSslPtr;
+#elseif eval
+typedef TlsContext = mbedtls.Ssl;
+#elseif hl
+typedef TlsContext = sys.ssl.Context;
+#elseif jvm
+typedef TlsContext = java.javax.net.ssl.SSLContext;
+#else
+#error 'Unsupported target'
+#end
