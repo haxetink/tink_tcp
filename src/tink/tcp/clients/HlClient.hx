@@ -41,19 +41,24 @@ class HlClient implements Client {
         if (tls == null) {
           resolve((new HlConnection('Connection to $to', tcp, null, to) : Connection));
         } else {
-          try {
-            final tlsCfg:TlsConfig = tls;
-            final session = new HlTlsSession(tlsCfg, tcp);
-            session.handshake().handle(o -> switch o {
-              case Success(_):
-                resolve((new HlTlsConnection('Connection to $to', session, null, to) : Connection));
-              case Failure(e):
+          switch TlsConfig.fromClient(tls) {
+            case Failure(e):
+              tcp.close();
+              reject(e);
+            case Success(tlsCfg):
+              try {
+                final session = new HlTlsSession(tlsCfg, tcp);
+                session.handshake().handle(o -> switch o {
+                  case Success(_):
+                    resolve((new HlTlsConnection('Connection to $to', session, null, to) : Connection));
+                  case Failure(e):
+                    tcp.close();
+                    reject(e);
+                });
+              } catch (e:haxe.Exception) {
                 tcp.close();
-                reject(e);
-            });
-          } catch (e:haxe.Exception) {
-            tcp.close();
-            reject(Error.withData(e.message, e));
+                reject(Error.withData(e.message, e));
+              }
           }
         }
       });

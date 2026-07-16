@@ -104,11 +104,10 @@ class CppServer implements ServerObject {
     final tls:Null<TlsConfig> = switch options?.tls {
       case null: null;
       case opts:
-        try {
-          final cfg:TlsConfig = opts;
-          cfg;
-        } catch (e:haxe.Exception)
-          return Future.sync(Failure(Error.withData(e.message, e)));
+        switch TlsConfig.fromServer(opts) {
+          case Failure(e): return Future.sync(Failure(e));
+          case Success(cfg): cfg;
+        }
     };
 
     return new Promise((resolve, reject) -> {

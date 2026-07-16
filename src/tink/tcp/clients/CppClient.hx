@@ -98,19 +98,24 @@ class CppClient implements Client {
       ctx.resolve((new CppConnection('Connection to ${ctx.to}', ctx.tcp) : Connection));
       return;
     }
-    try {
-      final tlsCfg:TlsConfig = tls;
-      final session = new CppTlsSession(tlsCfg, ctx.tcp);
-      session.handshake().handle(o -> switch o {
-        case Success(_):
-          ctx.resolve((new CppTlsConnection('Connection to ${ctx.to}', session, null, ctx.to) : Connection));
-        case Failure(e):
+    switch TlsConfig.fromClient(tls) {
+      case Failure(e):
+        closeTcp(ctx.tcp);
+        ctx.reject(e);
+      case Success(tlsCfg):
+        try {
+          final session = new CppTlsSession(tlsCfg, ctx.tcp);
+          session.handshake().handle(o -> switch o {
+            case Success(_):
+              ctx.resolve((new CppTlsConnection('Connection to ${ctx.to}', session, null, ctx.to) : Connection));
+            case Failure(e):
+              closeTcp(ctx.tcp);
+              ctx.reject(e);
+          });
+        } catch (e:haxe.Exception) {
           closeTcp(ctx.tcp);
-          ctx.reject(e);
-      });
-    } catch (e:haxe.Exception) {
-      closeTcp(ctx.tcp);
-      ctx.reject(Error.withData(e.message, e));
+          ctx.reject(Error.withData(e.message, e));
+        }
     }
   }
 

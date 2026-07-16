@@ -44,11 +44,15 @@ class JavaServer implements ServerObject {
   }
 
   static public function bind(target:Endpoint, ?options:BindOptions):Promise<Server> {
+    final tls:Null<TlsConfig> = switch options?.tls {
+      case null: null;
+      case opts:
+        switch TlsConfig.fromServer(opts) {
+          case Failure(e): return Future.sync(Failure(e));
+          case Success(cfg): cfg;
+        }
+    };
     return try {
-      final tls:Null<TlsConfig> = switch options?.tls {
-        case null: null;
-        case opts: opts;
-      };
       final server = Native.open();
       server.bind(target);
       (new JavaServer(server, tls) : Server);

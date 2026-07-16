@@ -53,16 +53,28 @@ private class ConnectedHandler implements CompletionHandler<java.lang.Void, Asyn
       if (tls == null) {
         cb.invoke(Success(new JavaConnection('Connection to ${socket.getRemoteAddress()}', socket)));
       } else {
-        final tlsCfg:TlsConfig = tls;
-        final tlsSession = new JavaTlsSession(tlsCfg, socket, to.host, to.port);
-        tlsSession.handshake().next(_ -> tlsSession).handle(o -> switch o {
-          case Success(s):
-            cb.invoke(Success(new JavaTlsConnection('Connection to ${socket.getRemoteAddress()}', s)));
+        switch TlsConfig.fromClient(tls) {
           case Failure(e):
             try socket.close()
             catch (_:Dynamic) {}
             cb.invoke(Failure(e));
-        });
+          case Success(tlsCfg):
+            try {
+              final tlsSession = new JavaTlsSession(tlsCfg, socket, to.host, to.port);
+              tlsSession.handshake().next(_ -> tlsSession).handle(o -> switch o {
+                case Success(s):
+                  cb.invoke(Success(new JavaTlsConnection('Connection to ${socket.getRemoteAddress()}', s)));
+                case Failure(e):
+                  try socket.close()
+                  catch (_:Dynamic) {}
+                  cb.invoke(Failure(e));
+              });
+            } catch (e:haxe.Exception) {
+              try socket.close()
+              catch (_:Dynamic) {}
+              cb.invoke(Failure(Error.withData(e.message, e)));
+            }
+        }
       }
     });
   }

@@ -1,14 +1,15 @@
 package tink.tcp.tls;
 
+import haxe.io.Bytes;
 import java.javax.net.ssl.*;
 import tink.tcp.Tls.TlsClientOptions;
 import tink.tcp.Tls.TlsServerOptions;
 import tink.tcp.tls.TlsAuth.TlsAuthMode;
 import tink.tcp.tls.java.JavaSsl;
-import tink.tcp.tls.java.JavaTlsPem;
 import tink.tcp.tls.java.TrustAllManager;
+using tink.CoreApi;
 
-private class TlsConfigData {
+class TlsConfig {
   final ctx:SSLContext;
   final isClient:Bool;
   final servername:Null<String>;
@@ -32,50 +33,52 @@ private class TlsConfigData {
     this.serverAuth = serverAuth;
   }
 
-  public static function fromClient(options:TlsClientOptions):TlsConfigData {
-    final ctx = SSLContext.getInstance("TLS");
-    final keyManagers = if (options.key != null && options.cert != null) {
-      final ks = JavaTlsPem.keyStoreFromCertKey(options.cert, options.key);
+  public static function fromClient(options:TlsClientOptions):Outcome<TlsConfig, Error>
+    return Error.catchExceptions(() -> {
+      final ctx = SSLContext.getInstance("TLS");
+      final keyManagers = if (options.key != null && options.cert != null) {
+        final ks = keyStoreFromCertKey(options.cert, options.key);
+        final kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        kmf.init(ks, storePassword());
+        kmf.getKeyManagers();
+      } else null;
+      final trustManagers = switch TlsAuth.clientMode(options) {
+        case None:
+          JavaSsl.trustManagerArray(new TrustAllManager());
+        case Required:
+          final ts = trustStoreFromCa(options.ca);
+          final tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+          tmf.init(ts);
+          tmf.getTrustManagers();
+        case Optional:
+          null;
+      };
+      ctx.init(keyManagers, trustManagers, new java.security.SecureRandom());
+      return new TlsConfig(
+        ctx,
+        true,
+        None,
+        options.servername,
+        options.alpn,
+        options.rejectUnauthorized != false
+      );
+    });
+
+  public static function fromServer(options:TlsServerOptions):Outcome<TlsConfig, Error>
+    return Error.catchExceptions(() -> {
+      final ctx = SSLContext.getInstance("TLS");
+      final ks = keyStoreFromCertKey(options.cert, options.key);
       final kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-      kmf.init(ks, JavaTlsPem.storePassword());
-      kmf.getKeyManagers();
-    } else null;
-    final trustManagers = switch TlsAuth.clientMode(options) {
-      case None:
-        JavaSsl.trustManagerArray(new TrustAllManager());
-      case Required:
-        final ts = JavaTlsPem.trustStoreFromCa(options.ca);
+      kmf.init(ks, storePassword());
+      final trustManagers = if (options.ca != null) {
+        final ts = trustStoreFromCa(options.ca);
         final tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
         tmf.init(ts);
         tmf.getTrustManagers();
-      case Optional:
-        null;
-    };
-    ctx.init(keyManagers, trustManagers, new java.security.SecureRandom());
-    return new TlsConfigData(
-      ctx,
-      true,
-      None,
-      options.servername,
-      options.alpn,
-      options.rejectUnauthorized != false
-    );
-  }
-
-  public static function fromServer(options:TlsServerOptions):TlsConfigData {
-    final ctx = SSLContext.getInstance("TLS");
-    final ks = JavaTlsPem.keyStoreFromCertKey(options.cert, options.key);
-    final kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-    kmf.init(ks, JavaTlsPem.storePassword());
-    final trustManagers = if (options.ca != null) {
-      final ts = JavaTlsPem.trustStoreFromCa(options.ca);
-      final tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-      tmf.init(ts);
-      tmf.getTrustManagers();
-    } else null;
-    ctx.init(kmf.getKeyManagers(), trustManagers, new java.security.SecureRandom());
-    return new TlsConfigData(ctx, false, TlsAuth.serverMode(options), null, options.alpn);
-  }
+      } else null;
+      ctx.init(kmf.getKeyManagers(), trustManagers, new java.security.SecureRandom());
+      return new TlsConfig(ctx, false, TlsAuth.serverMode(options), null, options.alpn);
+    });
 
   public function createContext(?host:String, ?port:Int):TlsContext {
     if (isClient) {
@@ -108,15 +111,62 @@ private class TlsConfigData {
       return engine;
     }
   }
-}
 
-abstract TlsConfig(TlsConfigData) from TlsConfigData {
-  @:from static function fromClient(options:TlsClientOptions):TlsConfig
-    return TlsConfigData.fromClient(options);
+  static function requirePkcs8(pem:Bytes):Void {
+    if (pem.toString().indexOf('BEGIN PRIVATE KEY') < 0)
+      throw new haxe.Exception('Unsupported key format: expected PKCS#8 PEM (BEGIN PRIVATE KEY)');
+  }
 
-  @:from static function fromServer(options:TlsServerOptions):TlsConfig
-    return TlsConfigData.fromServer(options);
+  static function parseCertificate(pem:Bytes):java.security.cert.X509Certificate {
+    final stream = new java.io.ByteArrayInputStream(pem.getData());
+    final factory = java.security.cert.CertificateFactory.getInstance("X.509");
+    return cast factory.generateCertificate(stream);
+  }
 
-  public inline function createContext(?host:String, ?port:Int):TlsContext
-    return this.createContext(host, port);
+  static function parsePrivateKey(pem:Bytes):java.security.PrivateKey {
+    requirePkcs8(pem);
+    final decoded = haxe.crypto.Base64.decode(stripPemBody(pem.toString()));
+    final spec = new java.security.spec.PKCS8EncodedKeySpec(decoded.getData());
+    final factory = java.security.KeyFactory.getInstance("RSA");
+    return factory.generatePrivate(spec);
+  }
+
+  static function keyStoreFromCertKey(cert:Bytes, key:Bytes, ?alias = "key"):java.security.KeyStore {
+    final ks = java.security.KeyStore.getInstance("PKCS12");
+    ks.load(null, null);
+    ks.setKeyEntry(alias, parsePrivateKey(key), emptyPassword(), certificateChain(parseCertificate(cert)));
+    return ks;
+  }
+
+  static function trustStoreFromCa(ca:Bytes, ?alias = "ca"):java.security.KeyStore {
+    final ks = java.security.KeyStore.getInstance("PKCS12");
+    ks.load(null, null);
+    ks.setCertificateEntry(alias, parseCertificate(ca));
+    return ks;
+  }
+
+  static function storePassword() {
+    final s:String = "changeit";
+    return untyped s.toCharArray();
+  }
+
+  static function emptyPassword() return storePassword();
+
+  static function certificateChain(cert:java.security.cert.X509Certificate) {
+    final cls = java.lang.Class.forName("java.security.cert.Certificate", true, null);
+    final arr = java.lang.reflect.Array.newInstance(cls, 1);
+    java.lang.reflect.Array.set(arr, 0, cert);
+    return arr;
+  }
+
+  static function stripPemBody(text:String):String {
+    final lines = text.split("\n");
+    final buf = new StringBuf();
+    for (line in lines) {
+      final trimmed = StringTools.trim(line);
+      if (trimmed.length == 0 || trimmed.indexOf("-----") == 0) continue;
+      buf.add(trimmed);
+    }
+    return buf.toString();
+  }
 }

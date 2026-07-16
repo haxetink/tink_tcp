@@ -46,19 +46,24 @@ class EvalClient implements Client {
             if (tls == null) {
               resolve((new EvalConnection('Connection to $to', tcp) : Connection));
             } else {
-              try {
-                final tlsCfg:TlsConfig = tls;
-                final session = new EvalTlsSession(tlsCfg, tcp);
-                session.handshake().handle(o -> switch o {
-                  case Success(_):
-                    resolve((new EvalTlsConnection('Connection to $to', session) : Connection));
-                  case Failure(e):
+              switch TlsConfig.fromClient(tls) {
+                case Failure(e):
+                  Handle.close(tcp, noop);
+                  reject(e);
+                case Success(tlsCfg):
+                  try {
+                    final session = new EvalTlsSession(tlsCfg, tcp);
+                    session.handshake().handle(o -> switch o {
+                      case Success(_):
+                        resolve((new EvalTlsConnection('Connection to $to', session) : Connection));
+                      case Failure(e):
+                        Handle.close(tcp, noop);
+                        reject(e);
+                    });
+                  } catch (e:haxe.Exception) {
                     Handle.close(tcp, noop);
-                    reject(e);
-                });
-              } catch (e:haxe.Exception) {
-                Handle.close(tcp, noop);
-                reject(Error.withData(e.message, e));
+                    reject(Error.withData(e.message, e));
+                  }
               }
             }
         }

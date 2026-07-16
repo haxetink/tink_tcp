@@ -7,7 +7,7 @@ typedef TlsContext = mbedtls.Ssl;
 #elseif hl
 typedef TlsContext = sys.ssl.Context;
 #elseif jvm
-typedef TlsContext = java.javax.net.ssl.SSLContext;
+typedef TlsContext = java.javax.net.ssl.SSLEngine;
 #else
 #error 'Unsupported target'
 #end

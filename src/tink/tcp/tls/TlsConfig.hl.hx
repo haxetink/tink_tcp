@@ -1,12 +1,15 @@
 package tink.tcp.tls;
 
+import haxe.io.Bytes;
+import sys.ssl.Certificate;
+import sys.ssl.Key;
 import tink.tcp.Tls.TlsClientOptions;
 import tink.tcp.Tls.TlsServerOptions;
-import tink.tcp.tls.hl.HlTlsPem;
+using tink.CoreApi;
 
 @:access(sys.ssl.Certificate)
 @:access(sys.ssl.Key)
-private class TlsConfigData {
+class TlsConfig {
   final conf:sys.ssl.Context.Config;
   final servername:Null<String>;
   final roots:Array<Dynamic> = [];
@@ -20,56 +23,58 @@ private class TlsConfigData {
     roots.push(v);
   }
 
-  public static function fromClient(options:TlsClientOptions):TlsConfigData {
-    final conf = new sys.ssl.Context.Config(false);
-    final data = new TlsConfigData(conf, options.servername);
+  public static function fromClient(options:TlsClientOptions):Outcome<TlsConfig, Error>
+    return Error.catchExceptions(() -> {
+      final conf = new sys.ssl.Context.Config(false);
+      final data = new TlsConfig(conf, options.servername);
 
-    conf.setVerify(switch TlsAuth.clientMode(options) {
-      case Required: 1;
-      case Optional | None: 0;
+      conf.setVerify(switch TlsAuth.clientMode(options) {
+        case Required: 1;
+        case Optional | None: 0;
+      });
+
+      if (options.ca != null) {
+        final ca = parseCert(options.ca);
+        conf.setCa(@:privateAccess ca.__x);
+        data.retain(ca);
+      }
+
+      if (options.cert != null && options.key != null) {
+        final cert = parseCert(options.cert);
+        final key = parseKey(options.key);
+        conf.setCert(@:privateAccess cert.__x, @:privateAccess key.__k);
+        data.retain(cert);
+        data.retain(key);
+      }
+
+      return data;
     });
 
-    if (options.ca != null) {
-      final ca = HlTlsPem.parseCert(options.ca);
-      conf.setCa(@:privateAccess ca.__x);
-      data.retain(ca);
-    }
+  public static function fromServer(options:TlsServerOptions):Outcome<TlsConfig, Error>
+    return Error.catchExceptions(() -> {
+      final conf = new sys.ssl.Context.Config(true);
+      final data = new TlsConfig(conf);
 
-    if (options.cert != null && options.key != null) {
-      final cert = HlTlsPem.parseCert(options.cert);
-      final key = HlTlsPem.parseKey(options.key);
+      final cert = parseCert(options.cert);
+      final key = parseKey(options.key);
       conf.setCert(@:privateAccess cert.__x, @:privateAccess key.__k);
       data.retain(cert);
       data.retain(key);
-    }
 
-    return data;
-  }
+      if (options.ca != null) {
+        final ca = parseCert(options.ca);
+        conf.setCa(@:privateAccess ca.__x);
+        data.retain(ca);
+      }
 
-  public static function fromServer(options:TlsServerOptions):TlsConfigData {
-    final conf = new sys.ssl.Context.Config(true);
-    final data = new TlsConfigData(conf);
+      conf.setVerify(switch TlsAuth.serverMode(options) {
+        case Required: 1;
+        case Optional: 2;
+        case None: 0;
+      });
 
-    final cert = HlTlsPem.parseCert(options.cert);
-    final key = HlTlsPem.parseKey(options.key);
-    conf.setCert(@:privateAccess cert.__x, @:privateAccess key.__k);
-    data.retain(cert);
-    data.retain(key);
-
-    if (options.ca != null) {
-      final ca = HlTlsPem.parseCert(options.ca);
-      conf.setCa(@:privateAccess ca.__x);
-      data.retain(ca);
-    }
-
-    conf.setVerify(switch TlsAuth.serverMode(options) {
-      case Required: 1;
-      case Optional: 2;
-      case None: 0;
+      return data;
     });
-
-    return data;
-  }
 
   public function createContext():TlsContext {
     final ssl = new sys.ssl.Context(conf);
@@ -77,15 +82,18 @@ private class TlsConfigData {
       ssl.setHostname(@:privateAccess servername.toUtf8());
     return ssl;
   }
-}
 
-abstract TlsConfig(TlsConfigData) from TlsConfigData {
-  @:from static function fromClient(options:TlsClientOptions):TlsConfig
-    return TlsConfigData.fromClient(options);
+  static function requirePkcs8(pem:Bytes):Void {
+    if (pem.toString().indexOf('BEGIN PRIVATE KEY') < 0)
+      throw new haxe.Exception('Unsupported key format: expected PKCS#8 PEM (BEGIN PRIVATE KEY)');
+  }
 
-  @:from static function fromServer(options:TlsServerOptions):TlsConfig
-    return TlsConfigData.fromServer(options);
+  static function parseCert(pem:Bytes):Certificate {
+    return Certificate.fromString(pem.toString());
+  }
 
-  public inline function createContext():TlsContext
-    return this.createContext();
+  static function parseKey(pem:Bytes):Key {
+    requirePkcs8(pem);
+    return Key.readPEM(pem.toString(), false);
+  }
 }

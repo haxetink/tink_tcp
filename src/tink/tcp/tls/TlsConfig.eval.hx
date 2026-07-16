@@ -1,11 +1,12 @@
 package tink.tcp.tls;
 
+import haxe.io.Bytes;
 import mbedtls.*;
 import tink.tcp.Tls.TlsClientOptions;
 import tink.tcp.Tls.TlsServerOptions;
-import tink.tcp.tls.eval.EvalTlsPem;
+using tink.CoreApi;
 
-private class TlsConfigData {
+class TlsConfig {
   final conf:Config;
   final entropy:Entropy;
   final drbg:CtrDrbg;
@@ -18,82 +19,84 @@ private class TlsConfigData {
     this.servername = servername;
   }
 
-  public static function fromClient(options:TlsClientOptions):TlsConfigData {
-    final entropy = new Entropy();
-    final drbg = new CtrDrbg();
-    final seed = drbg.seed(entropy, 'tink_tcp');
-    if (seed != 0)
-      throw new haxe.Exception('mbedtls CtrDrbg.seed failed: ${mbedtls.Error.strerror(seed)}');
+  public static function fromClient(options:TlsClientOptions):Outcome<TlsConfig, Error>
+    return Error.catchExceptions(() -> {
+      final entropy = new Entropy();
+      final drbg = new CtrDrbg();
+      final seed = drbg.seed(entropy, 'tink_tcp');
+      if (seed != 0)
+        throw new haxe.Exception('mbedtls CtrDrbg.seed failed: ${mbedtls.Error.strerror(seed)}');
 
-    final conf = new Config();
-    final defaults = conf.defaults(SslEndpoint.SSL_IS_CLIENT, SslTransport.SSL_TRANSPORT_STREAM, SslPreset.SSL_PRESET_DEFAULT);
-    if (defaults != 0)
-      throw new haxe.Exception('mbedtls Config.defaults failed: ${mbedtls.Error.strerror(defaults)}');
+      final conf = new Config();
+      final defaults = conf.defaults(SslEndpoint.SSL_IS_CLIENT, SslTransport.SSL_TRANSPORT_STREAM, SslPreset.SSL_PRESET_DEFAULT);
+      if (defaults != 0)
+        throw new haxe.Exception('mbedtls Config.defaults failed: ${mbedtls.Error.strerror(defaults)}');
 
-    conf.rng(drbg);
+      conf.rng(drbg);
 
-    conf.authmode(switch TlsAuth.clientMode(options) {
-      case Required: SslAuthmode.SSL_VERIFY_REQUIRED;
-      case Optional | None: SslAuthmode.SSL_VERIFY_NONE;
+      conf.authmode(switch TlsAuth.clientMode(options) {
+        case Required: SslAuthmode.SSL_VERIFY_REQUIRED;
+        case Optional | None: SslAuthmode.SSL_VERIFY_NONE;
+      });
+
+      if (options.ca != null)
+        conf.ca_chain(parseCert(options.ca));
+
+      if (options.cert != null && options.key != null) {
+        final ownCert = parseCert(options.cert);
+        final ownKey = parseKey(options.key, drbg);
+        final r = conf.own_cert(ownCert, ownKey);
+        if (r != 0)
+          throw new haxe.Exception('mbedtls Config.own_cert failed: ${mbedtls.Error.strerror(r)}');
+      }
+
+      if (options.alpn != null) {
+        final r = conf.alpn_protocols(options.alpn);
+        if (r != 0)
+          throw new haxe.Exception('mbedtls Config.alpn_protocols failed: ${mbedtls.Error.strerror(r)}');
+      }
+
+      return new TlsConfig(conf, entropy, drbg, options.servername);
     });
 
-    if (options.ca != null)
-      conf.ca_chain(EvalTlsPem.parseCert(options.ca));
+  public static function fromServer(options:TlsServerOptions):Outcome<TlsConfig, Error>
+    return Error.catchExceptions(() -> {
+      final entropy = new Entropy();
+      final drbg = new CtrDrbg();
+      final seed = drbg.seed(entropy, 'tink_tcp');
+      if (seed != 0)
+        throw new haxe.Exception('mbedtls CtrDrbg.seed failed: ${mbedtls.Error.strerror(seed)}');
 
-    if (options.cert != null && options.key != null) {
-      final ownCert = EvalTlsPem.parseCert(options.cert);
-      final ownKey = EvalTlsPem.parseKey(options.key, drbg);
-      final r = conf.own_cert(ownCert, ownKey);
-      if (r != 0)
-        throw new haxe.Exception('mbedtls Config.own_cert failed: ${mbedtls.Error.strerror(r)}');
-    }
+      final conf = new Config();
+      final defaults = conf.defaults(SslEndpoint.SSL_IS_SERVER, SslTransport.SSL_TRANSPORT_STREAM, SslPreset.SSL_PRESET_DEFAULT);
+      if (defaults != 0)
+        throw new haxe.Exception('mbedtls Config.defaults failed: ${mbedtls.Error.strerror(defaults)}');
 
-    if (options.alpn != null) {
-      final r = conf.alpn_protocols(options.alpn);
-      if (r != 0)
-        throw new haxe.Exception('mbedtls Config.alpn_protocols failed: ${mbedtls.Error.strerror(r)}');
-    }
+      conf.rng(drbg);
 
-    return new TlsConfigData(conf, entropy, drbg, options.servername);
-  }
+      final ownCert = parseCert(options.cert);
+      final ownKey = parseKey(options.key, drbg);
+      final own = conf.own_cert(ownCert, ownKey);
+      if (own != 0)
+        throw new haxe.Exception('mbedtls Config.own_cert failed: ${mbedtls.Error.strerror(own)}');
 
-  public static function fromServer(options:TlsServerOptions):TlsConfigData {
-    final entropy = new Entropy();
-    final drbg = new CtrDrbg();
-    final seed = drbg.seed(entropy, 'tink_tcp');
-    if (seed != 0)
-      throw new haxe.Exception('mbedtls CtrDrbg.seed failed: ${mbedtls.Error.strerror(seed)}');
+      if (options.ca != null)
+        conf.ca_chain(parseCert(options.ca));
 
-    final conf = new Config();
-    final defaults = conf.defaults(SslEndpoint.SSL_IS_SERVER, SslTransport.SSL_TRANSPORT_STREAM, SslPreset.SSL_PRESET_DEFAULT);
-    if (defaults != 0)
-      throw new haxe.Exception('mbedtls Config.defaults failed: ${mbedtls.Error.strerror(defaults)}');
+      conf.authmode(switch TlsAuth.serverMode(options) {
+        case Required: SslAuthmode.SSL_VERIFY_REQUIRED;
+        case Optional: SslAuthmode.SSL_VERIFY_OPTIONAL;
+        case None: SslAuthmode.SSL_VERIFY_NONE;
+      });
 
-    conf.rng(drbg);
+      if (options.alpn != null) {
+        final r = conf.alpn_protocols(options.alpn);
+        if (r != 0)
+          throw new haxe.Exception('mbedtls Config.alpn_protocols failed: ${mbedtls.Error.strerror(r)}');
+      }
 
-    final ownCert = EvalTlsPem.parseCert(options.cert);
-    final ownKey = EvalTlsPem.parseKey(options.key, drbg);
-    final own = conf.own_cert(ownCert, ownKey);
-    if (own != 0)
-      throw new haxe.Exception('mbedtls Config.own_cert failed: ${mbedtls.Error.strerror(own)}');
-
-    if (options.ca != null)
-      conf.ca_chain(EvalTlsPem.parseCert(options.ca));
-
-    conf.authmode(switch TlsAuth.serverMode(options) {
-      case Required: SslAuthmode.SSL_VERIFY_REQUIRED;
-      case Optional: SslAuthmode.SSL_VERIFY_OPTIONAL;
-      case None: SslAuthmode.SSL_VERIFY_NONE;
+      return new TlsConfig(conf, entropy, drbg);
     });
-
-    if (options.alpn != null) {
-      final r = conf.alpn_protocols(options.alpn);
-      if (r != 0)
-        throw new haxe.Exception('mbedtls Config.alpn_protocols failed: ${mbedtls.Error.strerror(r)}');
-    }
-
-    return new TlsConfigData(conf, entropy, drbg);
-  }
 
   public function createContext():TlsContext {
     final ssl = new Ssl();
@@ -107,15 +110,26 @@ private class TlsConfigData {
     }
     return ssl;
   }
-}
 
-abstract TlsConfig(TlsConfigData) from TlsConfigData {
-  @:from static function fromClient(options:TlsClientOptions):TlsConfig
-    return TlsConfigData.fromClient(options);
+  static function requirePkcs8(pem:Bytes):Void {
+    if (pem.toString().indexOf('BEGIN PRIVATE KEY') < 0)
+      throw new haxe.Exception('Unsupported key format: expected PKCS#8 PEM (BEGIN PRIVATE KEY)');
+  }
 
-  @:from static function fromServer(options:TlsServerOptions):TlsConfig
-    return TlsConfigData.fromServer(options);
+  static function parseCert(pem:Bytes):X509Crt {
+    final cert = new X509Crt();
+    final r = cert.parse(pem);
+    if (r != 0)
+      throw new haxe.Exception('Failed to parse certificate: ${mbedtls.Error.strerror(r)}');
+    return cert;
+  }
 
-  public inline function createContext():TlsContext
-    return this.createContext();
+  static function parseKey(pem:Bytes, drbg:CtrDrbg):PkContext {
+    requirePkcs8(pem);
+    final key = new PkContext();
+    final r = key.parse_key(pem, null, drbg);
+    if (r != 0)
+      throw new haxe.Exception('Failed to parse private key: ${mbedtls.Error.strerror(r)}');
+    return key;
+  }
 }
