@@ -8,8 +8,7 @@ import tink.tcp.Server;
 import tink.tcp.Connection;
 import tink.tcp.connections.CppConnection;
 import tink.tcp.connections.CppTlsConnection;
-import tink.tcp.tls.cpp.CppTlsContext;
-import tink.tcp.tls.cpp.CppTlsServerConfig;
+import tink.tcp.tls.TlsContext;
 import tink.io.cpp.CppTlsSession;
 import uv.*;
 import uv.Native.UvStream;
@@ -20,7 +19,7 @@ class CppServer implements ServerObject {
   final native:Tcp;
   final loop:Loop;
   final trigger:SignalTrigger<Connection>;
-  final tls:Null<CppTlsContext>;
+  final tls:Null<TlsContext>;
   final boundPort:Int;
   final boundHost:String;
   var closeResolve:Null<Noise->Void>;
@@ -32,7 +31,7 @@ class CppServer implements ServerObject {
   function get_port()
     return boundPort;
 
-  function new(server:Tcp, loop:Loop, trigger:SignalTrigger<Connection>, boundHost:String, boundPort:Int, ?tls:CppTlsContext) {
+  function new(server:Tcp, loop:Loop, trigger:SignalTrigger<Connection>, boundHost:String, boundPort:Int, ?tls:TlsContext) {
     this.native = server;
     this.loop = loop;
     this.trigger = trigger;
@@ -79,8 +78,7 @@ class CppServer implements ServerObject {
       return;
     }
     try {
-      final ssl = tls.newSsl();
-      final session = new CppTlsSession(client, ssl, tls);
+      final session = new CppTlsSession(tls, client);
       session.handshake().handle(o -> switch o {
         case Success(_):
           trigger.trigger((new CppTlsConnection(name, session, local, peerEp) : Connection));
@@ -103,10 +101,14 @@ class CppServer implements ServerObject {
 
   static public function bind(target:Endpoint, ?options:BindOptions):Promise<Server> {
     final l = uvLoop();
-    final tlsConfig:Null<CppTlsServerConfig> = options?.tls;
-    final tlsCtx = if (tlsConfig == null) null else {
-      try tlsConfig.createContext()
-      catch (e:haxe.Exception) return Future.sync(Failure(Error.withData(e.message, e)));
+    final tls:Null<TlsContext> = switch options?.tls {
+      case null: null;
+      case opts:
+        try {
+          final cfg:TlsContext = opts;
+          cfg;
+        } catch (e:haxe.Exception)
+          return Future.sync(Failure(Error.withData(e.message, e)));
     };
 
     return new Promise((resolve, reject) -> {
@@ -139,7 +141,7 @@ class CppServer implements ServerObject {
       }
 
       final sock = server.getSockAddress();
-      final instance = new CppServer(server, l, Signal.trigger(), sock.host, sock.port, tlsCtx);
+      final instance = new CppServer(server, l, Signal.trigger(), sock.host, sock.port, tls);
       final listenStatus = server.asStream().listen(128, Callable.fromStaticFunction(onConnection));
       if (listenStatus != 0) {
         closeTcp(server);

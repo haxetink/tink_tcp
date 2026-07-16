@@ -6,14 +6,13 @@ import tink.tcp.Server.BindOptions;
 import tink.tcp.Connection;
 import tink.tcp.connections.JavaConnection;
 import tink.tcp.connections.JavaTlsConnection;
-import tink.tcp.tls.java.JavaTlsServerConfig;
+import tink.tcp.tls.TlsContext;
 import tink.io.java.JavaTlsSession;
 import tink.io.java.OnMainThread;
 import java.nio.channels.AsynchronousServerSocketChannel as Native;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import java.lang.Throwable;
-import java.javax.net.ssl.SSLContext;
 
 using tink.CoreApi;
 
@@ -21,8 +20,7 @@ using tink.CoreApi;
 class JavaServer implements ServerObject {
   final native:Native;
   final trigger:SignalTrigger<Connection>;
-  final tls:Null<JavaTlsServerConfig>;
-  final sslContext:Null<SSLContext>;
+  final tls:Null<TlsContext>;
 
   public final connected:Signal<Connection>;
 
@@ -33,10 +31,9 @@ class JavaServer implements ServerObject {
     return addr.getPort();
   }
 
-  public function new(server:Native, ?tls:JavaTlsServerConfig) {
+  public function new(server:Native, ?tls:TlsContext) {
     this.native = server;
     this.tls = tls;
-    this.sslContext = tls?.createContext();
     connected = trigger = Signal.trigger();
     server.accept(this, new AcceptedHandler());
   }
@@ -48,9 +45,15 @@ class JavaServer implements ServerObject {
 
   static public function bind(target:Endpoint, ?options:BindOptions):Promise<Server> {
     return try {
+      final tls:Null<TlsContext> = switch options?.tls {
+        case null: null;
+        case opts: opts;
+      };
       final server = Native.open();
       server.bind(target);
-      (new JavaServer(server, options?.tls) : Server);
+      (new JavaServer(server, tls) : Server);
+    } catch (e:haxe.Exception) {
+      Error.withData(e.message, e);
     } catch (e:java.io.IOException) {
       Error.withData(e.getMessage(), e);
     }
@@ -66,9 +69,7 @@ private class AcceptedHandler implements CompletionHandler<AsynchronousSocketCha
         server.trigger.trigger(new JavaConnection('Connection from ${socket.getRemoteAddress()}', socket));
         server.native.accept(server, this);
       } else {
-        final engine = server.sslContext.createSSLEngine();
-        server.tls.configureEngine(engine);
-        final tlsSession = new JavaTlsSession(socket, engine);
+        final tlsSession = new JavaTlsSession(server.tls, socket);
         tlsSession.handshake().next(_ -> tlsSession).handle(o -> {
           switch o {
             case Success(s):

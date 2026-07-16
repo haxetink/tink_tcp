@@ -7,7 +7,7 @@ import tink.Chunk;
 import tink.tcp.cpp.mbedtls.Mbedtls;
 import tink.tcp.cpp.mbedtls.NativeTls;
 import tink.tcp.cpp.mbedtls.NativeTls.TlsSslPtr;
-import tink.tcp.tls.cpp.CppTlsContext;
+import tink.tcp.tls.TlsContext;
 import uv.*;
 import uv.Native.UvHandle;
 import uv.Native.UvStream;
@@ -33,7 +33,8 @@ class CppTlsSession implements tink.io.TlsSession {
   public final tcp:Tcp;
   final stream:Stream;
   final ssl:TlsSslPtr;
-  final ctx:CppTlsContext;
+  /** Keeps TlsContext (and native conf) alive for the session. */
+  final context:TlsContext;
 
   var netIn = Bytes.alloc(0);
   var netInPos = 0;
@@ -45,11 +46,11 @@ class CppTlsSession implements tink.io.TlsSession {
   var readWaiters:Array<Void->Void> = [];
   var writeWaiter:Null<Void->Void>;
 
-  public function new(tcp:Tcp, ssl:TlsSslPtr, ctx:CppTlsContext) {
+  public function new(context:TlsContext, tcp:Tcp) {
     this.tcp = tcp;
     this.stream = tcp.asStream();
-    this.ssl = ssl;
-    this.ctx = ctx;
+    this.context = context;
+    this.ssl = context.newSsl();
     stream.asHandle().setData(this);
     stream.asHandle().ref();
     final bioCtx:Star<cpp.Void> = untyped __cpp__('(void*){0}.GetPtr()', this);

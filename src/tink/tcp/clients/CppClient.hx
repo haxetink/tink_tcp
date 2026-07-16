@@ -9,7 +9,7 @@ import tink.tcp.Client.ConnectOptions;
 import tink.tcp.Connection;
 import tink.tcp.connections.CppConnection;
 import tink.tcp.connections.CppTlsConnection;
-import tink.tcp.tls.cpp.CppTlsClientConfig;
+import tink.tcp.tls.TlsContext;
 import tink.io.cpp.CppTlsSession;
 import uv.*;
 import uv.Native.UvConnect;
@@ -99,11 +99,8 @@ class CppClient implements Client {
       return;
     }
     try {
-      final cfg:CppTlsClientConfig = tls;
-      final tlsCtx = cfg.createContext();
-      final ssl = tlsCtx.newSsl();
-      cfg.configureSsl(ssl);
-      final session = new CppTlsSession(ctx.tcp, ssl, tlsCtx);
+      final tlsCtx:TlsContext = tls;
+      final session = new CppTlsSession(tlsCtx, ctx.tcp);
       session.handshake().handle(o -> switch o {
         case Success(_):
           ctx.resolve((new CppTlsConnection('Connection to ${ctx.to}', session, null, ctx.to) : Connection));

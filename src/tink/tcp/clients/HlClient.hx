@@ -10,7 +10,7 @@ import tink.tcp.Connection;
 import tink.tcp.connections.HlConnection;
 import tink.tcp.connections.HlTlsConnection;
 import tink.tcp.hl.HlLoop;
-import tink.tcp.tls.hl.HlTlsClientConfig;
+import tink.tcp.tls.TlsContext;
 import tink.io.hl.HlTlsSession;
 
 using tink.CoreApi;
@@ -42,11 +42,8 @@ class HlClient implements Client {
           resolve((new HlConnection('Connection to $to', tcp, null, to) : Connection));
         } else {
           try {
-            final cfg:HlTlsClientConfig = tls;
-            final ctx = cfg.createContext();
-            final ssl = ctx.newSsl();
-            cfg.configureSsl(ssl);
-            final session = new HlTlsSession(tcp, ssl, ctx);
+            final tlsCtx:TlsContext = tls;
+            final session = new HlTlsSession(tlsCtx, tcp);
             session.handshake().handle(o -> switch o {
               case Success(_):
                 resolve((new HlTlsConnection('Connection to $to', session, null, to) : Connection));

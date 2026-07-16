@@ -5,15 +5,15 @@ import haxe.io.Bytes;
 import hl.uv.Stream;
 import sys.ssl.Context;
 import tink.Chunk;
-import tink.tcp.tls.hl.HlTlsContext;
-
+import tink.tcp.tls.TlsContext;
 using tink.CoreApi;
 
 @:allow(tink.io.hl)
 class HlTlsSession implements tink.io.TlsSession {
   public final stream:Stream;
   final ssl:Context;
-  final ctx:HlTlsContext;
+  /** Keeps TlsContext (and cert roots) alive for the session. */
+  final context:TlsContext;
 
   var netIn = Bytes.alloc(0);
   var netInPos = 0;
@@ -27,10 +27,10 @@ class HlTlsSession implements tink.io.TlsSession {
 
   var bio:hl.NativeArray<Dynamic>;
 
-  public function new(stream:Stream, ssl:Context, ctx:HlTlsContext) {
+  public function new(context:TlsContext, stream:Stream) {
     this.stream = stream;
-    this.ssl = ssl;
-    this.ctx = ctx;
+    this.context = context;
+    this.ssl = context.newSsl();
 
     bio = new hl.NativeArray(3);
     bio[0] = this;

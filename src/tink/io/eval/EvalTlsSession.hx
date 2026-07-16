@@ -6,8 +6,7 @@ import haxe.io.Bytes;
 import mbedtls.Error as MbedtlsError;
 import mbedtls.Ssl;
 import tink.Chunk;
-import tink.tcp.tls.eval.EvalTlsContext;
-
+import tink.tcp.tls.TlsContext;
 using tink.CoreApi;
 using eval.luv.Buffer;
 using eval.luv.Stream;
@@ -16,7 +15,8 @@ using eval.luv.Stream;
 class EvalTlsSession implements tink.io.TlsSession {
   public final tcp:Tcp;
   final ssl:Ssl;
-  final ctx:EvalTlsContext;
+  /** Keeps TlsContext (and entropy/drbg) alive for the session. */
+  final context:TlsContext;
 
   var netIn = Bytes.alloc(0);
   var netInPos = 0;
@@ -28,10 +28,10 @@ class EvalTlsSession implements tink.io.TlsSession {
   var readWaiters:Array<Void->Void> = [];
   var writeWaiter:Null<Void->Void>;
 
-  public function new(tcp:Tcp, ssl:Ssl, ctx:EvalTlsContext) {
+  public function new(context:TlsContext, tcp:Tcp) {
     this.tcp = tcp;
-    this.ssl = ssl;
-    this.ctx = ctx;
+    this.context = context;
+    this.ssl = context.newSsl();
     Handle.ref(tcp);
     ssl.set_bio(bioSend, bioRecv);
   }

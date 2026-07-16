@@ -9,8 +9,7 @@ import tink.tcp.Connection;
 import tink.tcp.connections.HlConnection;
 import tink.tcp.connections.HlTlsConnection;
 import tink.tcp.hl.HlLoop;
-import tink.tcp.tls.hl.HlTlsContext;
-import tink.tcp.tls.hl.HlTlsServerConfig;
+import tink.tcp.tls.TlsContext;
 import tink.io.hl.HlTlsSession;
 
 using tink.CoreApi;
@@ -19,7 +18,7 @@ class HlServer implements ServerObject {
   final native:Tcp;
   final loop:Loop;
   final trigger:SignalTrigger<Connection>;
-  final tls:Null<HlTlsContext>;
+  final tls:Null<TlsContext>;
   final boundPort:Int;
   final boundHost:String;
 
@@ -30,7 +29,7 @@ class HlServer implements ServerObject {
   function get_port()
     return boundPort;
 
-  function new(server:Tcp, loop:Loop, trigger:SignalTrigger<Connection>, boundHost:String, boundPort:Int, ?tls:HlTlsContext) {
+  function new(server:Tcp, loop:Loop, trigger:SignalTrigger<Connection>, boundHost:String, boundPort:Int, ?tls:TlsContext) {
     this.native = server;
     this.loop = loop;
     this.trigger = trigger;
@@ -56,8 +55,7 @@ class HlServer implements ServerObject {
       return;
     }
     try {
-      final ssl = tls.newSsl();
-      final session = new HlTlsSession(client, ssl, tls);
+      final session = new HlTlsSession(tls, client);
       session.handshake().handle(o -> switch o {
         case Success(_):
           trigger.trigger((new HlTlsConnection(name, session, local) : Connection));
@@ -71,10 +69,14 @@ class HlServer implements ServerObject {
 
   static public function bind(target:Endpoint, ?options:BindOptions):Promise<Server> {
     final l = options?.loop ?? HlLoop.current();
-    final tlsConfig:Null<HlTlsServerConfig> = options?.tls;
-    final tlsCtx = if (tlsConfig == null) null else {
-      try tlsConfig.createContext()
-      catch (e:haxe.Exception) return Future.sync(Failure(Error.withData(e.message, e)));
+    final tls:Null<TlsContext> = switch options?.tls {
+      case null: null;
+      case opts:
+        try {
+          final cfg:TlsContext = opts;
+          cfg;
+        } catch (e:haxe.Exception)
+          return Future.sync(Failure(Error.withData(e.message, e)));
     };
 
     return new Promise((resolve, reject) -> {
@@ -102,7 +104,7 @@ class HlServer implements ServerObject {
         return null;
       }
 
-      final instance = new HlServer(server, l, Signal.trigger(), hostName, port, tlsCtx);
+      final instance = new HlServer(server, l, Signal.trigger(), hostName, port, tls);
       try {
         server.listen(128, () -> {
           try {

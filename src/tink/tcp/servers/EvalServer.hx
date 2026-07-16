@@ -7,8 +7,7 @@ import tink.tcp.Connection;
 import tink.tcp.connections.EvalConnection;
 import tink.tcp.connections.EvalTlsConnection;
 import tink.tcp.eval.EvalLoop;
-import tink.tcp.tls.eval.EvalTlsContext;
-import tink.tcp.tls.eval.EvalTlsServerConfig;
+import tink.tcp.tls.TlsContext;
 import tink.io.eval.EvalTlsSession;
 
 using tink.CoreApi;
@@ -18,7 +17,7 @@ class EvalServer implements ServerObject {
   final native:Tcp;
   final loop:Loop;
   final trigger:SignalTrigger<Connection>;
-  final tls:Null<EvalTlsContext>;
+  final tls:Null<TlsContext>;
 
   public final connected:Signal<Connection>;
 
@@ -31,7 +30,7 @@ class EvalServer implements ServerObject {
     }
   }
 
-  function new(server:Tcp, loop:Loop, trigger:SignalTrigger<Connection>, ?tls:EvalTlsContext) {
+  function new(server:Tcp, loop:Loop, trigger:SignalTrigger<Connection>, ?tls:TlsContext) {
     this.native = server;
     this.loop = loop;
     this.trigger = trigger;
@@ -58,8 +57,7 @@ class EvalServer implements ServerObject {
       return;
     }
     try {
-      final ssl = tls.newSsl();
-      final session = new EvalTlsSession(client, ssl, tls);
+      final session = new EvalTlsSession(tls, client);
       session.handshake().handle(o -> switch o {
         case Success(_):
           trigger.trigger((new EvalTlsConnection(name, session) : Connection));
@@ -73,10 +71,14 @@ class EvalServer implements ServerObject {
 
   static public function bind(target:Endpoint, ?options:BindOptions):Promise<Server> {
     final l = options?.loop ?? EvalLoop.current();
-    final tlsConfig:Null<EvalTlsServerConfig> = options?.tls;
-    final tlsCtx = if (tlsConfig == null) null else {
-      try tlsConfig.createContext()
-      catch (e:haxe.Exception) return Future.sync(Failure(Error.withData(e.message, e)));
+    final tls:Null<TlsContext> = switch options?.tls {
+      case null: null;
+      case opts:
+        try {
+          final cfg:TlsContext = opts;
+          cfg;
+        } catch (e:haxe.Exception)
+          return Future.sync(Failure(Error.withData(e.message, e)));
     };
     return new Promise((resolve, reject) -> {
       final server = switch Tcp.init(l) {
@@ -102,7 +104,7 @@ class EvalServer implements ServerObject {
         case Ok(_):
       }
 
-      final instance = new EvalServer(server, l, Signal.trigger(), tlsCtx);
+      final instance = new EvalServer(server, l, Signal.trigger(), tls);
       server.listen(function(result) {
         switch result {
           case Error(e):

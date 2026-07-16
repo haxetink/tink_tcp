@@ -8,6 +8,7 @@ import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import haxe.io.Bytes;
 import tink.Chunk;
+import tink.tcp.tls.TlsContext;
 
 using tink.CoreApi;
 
@@ -17,14 +18,17 @@ class JavaTlsSession {
 
   public final channel:AsynchronousSocketChannel;
   final engine:java.javax.net.ssl.SSLEngine;
+  /** Keeps TlsContext (and SSLContext) alive for the session. */
+  final context:TlsContext;
   final executor:java.util.concurrent.ExecutorService;
   var netIn:ByteBuffer;
   var netOut:ByteBuffer;
   var appIn:ByteBuffer;
 
-  public function new(channel:AsynchronousSocketChannel, engine:java.javax.net.ssl.SSLEngine) {
+  public function new(context:TlsContext, channel:AsynchronousSocketChannel, ?host:String, ?port:Int) {
     this.channel = channel;
-    this.engine = engine;
+    this.context = context;
+    this.engine = context.newEngine(host, port);
     this.executor = java.util.concurrent.Executors.newSingleThreadExecutor();
     final packetSize = engine.getSession().getPacketBufferSize();
     final appSize = engine.getSession().getApplicationBufferSize();
