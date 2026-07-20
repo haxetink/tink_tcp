@@ -4,12 +4,12 @@ package tink.tcp.servers;
 import eval.luv.*;
 import tink.tcp.Server;
 import tink.tcp.connections.EvalConnection;
-import tink.tcp.connections.EvalTlsConnection;
 import tink.tcp.eval.EvalLoop;
+#if eval_tls
+import tink.tcp.connections.EvalTlsConnection;
 import tink.tcp.tls.TlsConfig;
-import tink.io.Source;
-import tink.io.Sink;
 import tink.io.eval.EvalTlsSession;
+#end
 
 using tink.CoreApi;
 using eval.luv.Stream;
@@ -18,7 +18,9 @@ class EvalServer implements ServerObject {
   final native:Tcp;
   final loop:Loop;
   final app:Handler;
+  #if eval_tls
   final tls:Null<TlsConfig>;
+  #end
 
   public var endpoint(get, never):Endpoint;
 
@@ -29,11 +31,13 @@ class EvalServer implements ServerObject {
     };
   }
 
-  function new(server:Tcp, loop:Loop, app:Handler, ?tls:TlsConfig) {
+  private function new(server:Tcp, loop:Loop, app:Handler #if eval_tls , ?tls:TlsConfig #end) {
     this.native = server;
     this.loop = loop;
     this.app = app;
+    #if eval_tls
     this.tls = tls;
+    #end
   }
 
   public function shutdown():Promise<Noise> {
@@ -43,37 +47,36 @@ class EvalServer implements ServerObject {
     });
   }
 
-  function start(source:RealSource, sink:RealSink, local:Endpoint, peer:Endpoint) {
-    Session.run(source, sink, local, peer, app);
-  }
-
   function acceptClient(client:Tcp) {
     client.noDelay(true);
     final name = switch client.getPeerName() {
       case Ok(addr): 'Connection from $addr';
       case Error(_): 'Connection';
     };
-    if (tls == null) {
-      final duplex = new EvalConnection(name, client);
-      start(duplex.source, duplex.sink, duplex.local, duplex.peer);
+    #if eval_tls
+    if (tls != null) {
+      try {
+        final session = new EvalTlsSession(tls, client);
+        session.handshake().handle(o -> switch o {
+          case Success(_):
+            final duplex = new EvalTlsConnection(name, session);
+            Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
+          case Failure(_):
+            Handle.close(client, noop);
+        });
+      } catch (_:haxe.Exception) {
+        Handle.close(client, noop);
+      }
       return;
     }
-    try {
-      final session = new EvalTlsSession(tls, client);
-      session.handshake().handle(o -> switch o {
-        case Success(_):
-          final duplex = new EvalTlsConnection(name, session);
-          start(duplex.source, duplex.sink, duplex.local, duplex.peer);
-        case Failure(_):
-          Handle.close(client, noop);
-      });
-    } catch (_:haxe.Exception) {
-      Handle.close(client, noop);
-    }
+    #end
+    final duplex = new EvalConnection(name, client);
+    Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
   }
 
   static public function bind(to:Endpoint, app:Handler, ?options:BindOptions):Promise<Server> {
     final l = options?.loop ?? EvalLoop.current();
+    #if eval_tls
     final tls:Null<TlsConfig> = switch options?.tls {
       case null: null;
       case opts:
@@ -82,6 +85,10 @@ class EvalServer implements ServerObject {
           case Success(cfg): cfg;
         }
     };
+    #else
+    if (options?.tls != null)
+      return Future.sync(Failure(new Error('Eval TLS requires -D eval_tls')));
+    #end
     return new Promise((resolve, reject) -> {
       final server = switch Tcp.init(l) {
         case Error(e):
@@ -106,11 +113,12 @@ class EvalServer implements ServerObject {
         case Ok(_):
       }
 
-      final instance = new EvalServer(server, l, app, tls);
+      final instance = new EvalServer(server, l, app #if eval_tls , tls #end);
       server.listen(function(result) {
         switch result {
-          case Error(e):
-            // TODO: report accept errors
+          case Error(_):
+            // Expected when shutdown() closes the listen socket while accept is pending.
+            // TODO: report other accept errors
           case Ok(_):
             final client = switch Tcp.init(l) {
               case Error(_): return;

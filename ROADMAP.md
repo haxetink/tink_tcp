@@ -202,24 +202,28 @@ Agents work **strictly in order** T1…T10: implementor completes a task → rev
 
 ### T6 — Eval Client + Server
 
-**Status:** pending
+**Status:** done (reviewer: approve with notes)
 
 **Files:** `src/tink/tcp/clients/EvalClient.hx`, `src/tink/tcp/servers/EvalServer.hx`
 
 #### Implementor checklist
 
-- [ ] Session wiring; honor `BindOptions.loop`
-- [ ] Connect Promise = dial only
-- [ ] `lix run travix interp` green
+- [x] Session wiring; honor `BindOptions.loop`
+- [x] Connect Promise = dial only
+- [x] `lix run travix interp` green
 
 #### Reviewer checklist
 
-- [ ] Loop keep-alive / shutdown preserved
-- [ ] No old-API leftovers
+- [x] Loop keep-alive / shutdown preserved
+- [x] No old-API leftovers
 
 #### Agent log
 
 <!-- implementor / reviewer append below -->
+
+- **Implementor:** Audited Eval layer against T6 (core dial/accept/`Session.run`/`BindOptions.loop` already landed in T1–T2). Hardened to match Node T3 / JVM T5: private duplex ctors + package `@:allow` on `EvalConnection`/`EvalTlsConnection`; private `EvalServer` ctor; dial Promise uses Node-style `done`/`finish` guard + cancel closes TCP; dial success → `Session.run` then resolve `Noise` (does not await pipe); accept → `Session.run`; TLS handshake failure rejects/closes without handler. Updated `EvalLoop` NativeEventLoop adapter for current Haxe `run(maxBlock)`/`wake()` (async doorbell + deadline timer, mirroring `hl.uv.Loop` LoopWrapper) so loop keep-alive/shutdown still works under EventLoop. Gated Eval TLS compile paths behind `-D eval_tls` (plain interp rejects `options.tls` with a clear error) because stock mbedtls eval bindings still lack `own_cert`/`set_bio`/ALPN — same deferral README already documents for T9. Verification: interp suite green (6/6) via travix-equivalent `neko …/travix/run.n interp` (`lix run travix interp` still broken on haxelib shim in this env, same as T4/T5). Intentional deferrals for reviewer: duplex types still named `*Connection` (T10); `TlsTest`/README still old API (T9/T10); full Eval TLS needs Haxe with eval_tls mbedtls APIs (T9).
+
+- **Reviewer:** Approve with notes. Eval Client/Server meet T6: dial success → `Session.run` then resolve `Noise` (does not await pipe); `done`/`finish` + cancel closes TCP without running handler on failure; bind honors `BindOptions.loop` / `EvalLoop.current()`; accept → `Session.run`; duplex + `EvalServer` privatized like Node/JVM; plain interp rejects `options.tls` with a clear error; `EvalLoop` `LuvLoopWrapper` matches Haxe `NativeEventLoop` (`run(maxBlock)` / `wake` / `close` / `isAlive`) and HL’s LoopWrapper. Fixes applied: dial cancel no longer double-closes (close inside `finish`; early return on Ok if already cancelled); `EvalTlsConnection` gated behind `-D eval_tls`; `EvalLoop` closes async wake handle if timer init fails. Non-blockers deferred: duplex still named `*Connection` (T10); `TlsTest`/README old API (T9/T10); full Eval TLS needs eval_tls mbedtls APIs (T9); non-close accept errors still TODO. Re-verified interp 6/6 via `neko …/travix/run.n interp`. Safe to commit T6.
 
 ---
 

@@ -4,10 +4,12 @@ package tink.tcp.clients;
 import eval.luv.*;
 import tink.tcp.Client.ConnectOptions;
 import tink.tcp.connections.EvalConnection;
-import tink.tcp.connections.EvalTlsConnection;
 import tink.tcp.eval.EvalLoop;
+#if eval_tls
+import tink.tcp.connections.EvalTlsConnection;
 import tink.tcp.tls.TlsConfig;
 import tink.io.eval.EvalTlsSession;
+#end
 
 using tink.CoreApi;
 
@@ -23,6 +25,14 @@ class EvalClient {
     };
 
     return new Promise((resolve, reject) -> {
+      var done = false;
+      function finish(f:Void->Void) {
+        if (!done) {
+          done = true;
+          f();
+        }
+      }
+
       final tcp = switch Tcp.init(l) {
         case Error(e):
           reject(luvError(e, 'Failed to init TCP client'));
@@ -33,41 +43,69 @@ class EvalClient {
       tcp.connect(addr, function(result) {
         switch result {
           case Error(e):
-            Handle.close(tcp, noop);
-            reject(luvError(e, 'Failed to connect to $to'));
+            // Close inside finish so cancel (which already closed) cannot double-close.
+            finish(() -> {
+              Handle.close(tcp, noop);
+              reject(luvError(e, 'Failed to connect to $to'));
+            });
           case Ok(_):
+            if (done)
+              return;
             tcp.noDelay(true);
+            #if eval_tls
             final tls = options?.tls;
-            if (tls == null) {
-              final duplex = new EvalConnection('Connection to $to', tcp);
-              Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
-              resolve(Noise);
-            } else {
+            if (tls != null) {
               switch TlsConfig.fromClient(tls) {
                 case Failure(e):
-                  Handle.close(tcp, noop);
-                  reject(e);
+                  finish(() -> {
+                    Handle.close(tcp, noop);
+                    reject(e);
+                  });
                 case Success(tlsCfg):
                   try {
                     final session = new EvalTlsSession(tlsCfg, tcp);
                     session.handshake().handle(o -> switch o {
                       case Success(_):
-                        final duplex = new EvalTlsConnection('Connection to $to', session);
-                        Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
-                        resolve(Noise);
+                        finish(() -> {
+                          final duplex = new EvalTlsConnection('Connection to $to', session);
+                          Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
+                          resolve(Noise);
+                        });
                       case Failure(e):
-                        Handle.close(tcp, noop);
-                        reject(e);
+                        finish(() -> {
+                          Handle.close(tcp, noop);
+                          reject(e);
+                        });
                     });
                   } catch (e:haxe.Exception) {
-                    Handle.close(tcp, noop);
-                    reject(Error.withData(e.message, e));
+                    finish(() -> {
+                      Handle.close(tcp, noop);
+                      reject(Error.withData(e.message, e));
+                    });
                   }
               }
+              return;
             }
+            #else
+            if (options?.tls != null) {
+              finish(() -> {
+                Handle.close(tcp, noop);
+                reject(new Error('Eval TLS requires -D eval_tls'));
+              });
+              return;
+            }
+            #end
+            finish(() -> {
+              final duplex = new EvalConnection('Connection to $to', tcp);
+              Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
+              resolve(Noise);
+            });
         }
       });
-      return null;
+      return () -> if (!done) {
+        done = true;
+        Handle.close(tcp, noop);
+      };
     });
   }
 
