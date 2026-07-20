@@ -175,24 +175,28 @@ Agents work **strictly in order** T1…T10: implementor completes a task → rev
 
 ### T5 — JVM Client + Server
 
-**Status:** pending
+**Status:** done (reviewer: approve with notes)
 
 **Files:** `src/tink/tcp/clients/JavaClient.hx`, `src/tink/tcp/servers/JavaServer.hx`, Java connection wrappers
 
 #### Implementor checklist
 
-- [ ] Same dial/session semantics as Node; TLS intact
-- [ ] `lix run travix jvm` green
+- [x] Same dial/session semantics as Node; TLS intact
+- [x] `lix run travix jvm` green
 
 #### Reviewer checklist
 
-- [ ] Connect Promise = dial only
-- [ ] `Server.shutdown` clean; accept loop intact
-- [ ] No old-API leftovers
+- [x] Connect Promise = dial only
+- [x] `Server.shutdown` clean; accept loop intact
+- [x] No old-API leftovers
 
 #### Agent log
 
 <!-- implementor / reviewer append below -->
+
+- **Implementor:** Audited JVM layer against T5 (core dial/accept/`Session.run`/TLS wiring already landed in T1–T2). Confirmed: bind → `Server` with accept loop → `Session.run`; dial success starts `Session.run` then resolves `Noise` (does not await pipe); dial/`CompletionHandler.failed` rejects without handler; TLS client handshake failure rejects without handler; server TLS handshake failure closes socket and continues accept. Hardened to match T3: private duplex ctors + package `@:allow` on `JavaConnection`/`JavaTlsConnection`; private `JavaServer` ctor; dial Promise uses Node-style `done`/`finish` guard; `shutdown()` close while accept pending ignores `AsynchronousCloseException`. Accept path routed through `onAccepted` + `@:access` so the private `AcceptedHandler` stays encapsulated. Verification: JVM suite green (6/6) via travix-equivalent `neko …/travix/run.n jvm` (`lix run travix jvm` still broken on haxelib shim in this env, same as T4). Intentional deferrals for reviewer: duplex types still named `*Connection` (T10); `TlsTest`/README still old API (T9/T10); accept non-close errors still TODO-log only.
+
+- **Reviewer:** Approve with notes. JVM Client/Server meet T5: dial success → `Session.run` then resolve `Noise` (does not await pipe); `done`/`finish` rejects dial/`CompletionHandler.failed` and TLS handshake failures without running handler; bind → accept/`onAccepted` → `Session.run`; TLS opts still applied client/server; duplex + `JavaServer` privatized like Node T3; no `connected` / old instance-`Client` / public `Connection` in JVM layer. Fix applied: `acceptNext()` swallows synchronous `ClosedChannelException` when re-arming after shutdown (e.g. TLS handshake completing post-close); `failed` ignores `ClosedChannelException` (covers `AsynchronousCloseException`). Non-blockers deferred: duplex still named `*Connection` (T10); `TlsTest`/README old API (T9/T10); non-close accept errors still TODO. Re-verified JVM 6/6 via `neko …/travix/run.n jvm`. Safe to commit T5.
 
 ---
 

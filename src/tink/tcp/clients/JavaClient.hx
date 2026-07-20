@@ -17,14 +17,21 @@ class JavaClient {
   private function new() {}
 
   static public function connect(to:Endpoint, app:Handler, ?options:ConnectOptions):Promise<Noise> {
-    return new Future(cb -> {
+    return new Promise((resolve, reject) -> {
       final native = AsynchronousSocketChannel.open();
-      var settled = false;
-      native.connect(to, native, new ConnectedHandler(to, options, app, outcome -> {
-        settled = true;
-        cb(outcome);
-      }));
-      return () -> if (!settled) {
+      var done = false;
+      function finish(f:Void->Void) {
+        if (!done) {
+          done = true;
+          f();
+        }
+      }
+      native.connect(to, native, new ConnectedHandler(to, options, app, outcome -> finish(() -> switch outcome {
+        case Success(_): resolve(Noise);
+        case Failure(e): reject(e);
+      })));
+      return () -> if (!done) {
+        done = true;
         try native.close()
         catch (_:Dynamic) {}
       };

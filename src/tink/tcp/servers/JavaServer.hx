@@ -6,33 +6,33 @@ import tink.tcp.Server.BindOptions;
 import tink.tcp.connections.JavaConnection;
 import tink.tcp.connections.JavaTlsConnection;
 import tink.tcp.tls.TlsConfig;
-import tink.io.Source;
-import tink.io.Sink;
 import tink.io.java.JavaTlsSession;
 import tink.io.java.OnMainThread;
 import java.nio.channels.AsynchronousServerSocketChannel as Native;
 import java.nio.channels.AsynchronousSocketChannel;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.CompletionHandler;
 import java.lang.Throwable;
 
 using tink.CoreApi;
 
-@:allow(tink.tcp.servers.JavaServer)
 class JavaServer implements ServerObject {
   final native:Native;
   final app:Handler;
   final tls:Null<TlsConfig>;
+  final acceptHandler:AcceptedHandler;
 
   public var endpoint(get, never):Endpoint;
 
   function get_endpoint()
     return (native.getLocalAddress() : Endpoint);
 
-  public function new(server:Native, app:Handler, ?tls:TlsConfig) {
+  private function new(server:Native, app:Handler, ?tls:TlsConfig) {
     this.native = server;
     this.app = app;
     this.tls = tls;
-    server.accept(this, new AcceptedHandler());
+    this.acceptHandler = new AcceptedHandler();
+    acceptNext();
   }
 
   public function shutdown():Promise<Noise> {
@@ -40,8 +40,30 @@ class JavaServer implements ServerObject {
     return Promise.NOISE;
   }
 
-  function start(source:RealSource, sink:RealSink, local:Endpoint, peer:Endpoint) {
-    Session.run(source, sink, local, peer, app);
+  function acceptNext() {
+    try native.accept(this, acceptHandler) catch (e:ClosedChannelException) {}
+  }
+
+  function onAccepted(socket:AsynchronousSocketChannel) {
+    if (tls == null) {
+      final duplex = new JavaConnection('Connection from ${socket.getRemoteAddress()}', socket);
+      Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
+      acceptNext();
+    } else {
+      final tlsSession = new JavaTlsSession(tls, socket);
+      tlsSession.handshake().next(_ -> tlsSession).handle(o -> {
+        switch o {
+          case Success(s):
+            final duplex = new JavaTlsConnection('Connection from ${socket.getRemoteAddress()}', s);
+            Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
+            acceptNext();
+          case Failure(e):
+            try socket.close()
+            catch (_:Dynamic) {}
+            acceptNext();
+        }
+      });
+    }
   }
 
   static public function bind(to:Endpoint, app:Handler, ?options:BindOptions):Promise<Server> {
@@ -65,36 +87,21 @@ class JavaServer implements ServerObject {
   }
 }
 
+@:access(tink.tcp.servers.JavaServer)
 private class AcceptedHandler implements CompletionHandler<AsynchronousSocketChannel, JavaServer> {
   public function new() {}
 
   public function completed(socket:AsynchronousSocketChannel, server:JavaServer) {
-    OnMainThread.run(() -> {
-      if (server.tls == null) {
-        final duplex = new JavaConnection('Connection from ${socket.getRemoteAddress()}', socket);
-        server.start(duplex.source, duplex.sink, duplex.local, duplex.peer);
-        server.native.accept(server, this);
-      } else {
-        final tlsSession = new JavaTlsSession(server.tls, socket);
-        tlsSession.handshake().next(_ -> tlsSession).handle(o -> {
-          switch o {
-            case Success(s):
-              final duplex = new JavaTlsConnection('Connection from ${socket.getRemoteAddress()}', s);
-              server.start(duplex.source, duplex.sink, duplex.local, duplex.peer);
-              server.native.accept(server, this);
-            case Failure(e):
-              try socket.close()
-              catch (_:Dynamic) {}
-              server.native.accept(server, this);
-          }
-        });
-      }
-    });
+    OnMainThread.run(() -> server.onAccepted(socket));
   }
 
   public function failed(exc:Throwable, server:JavaServer) {
-    // TODO: handle java.nio.channels.AsynchronousCloseException? it is thrown when server is closed while accept() is still pending
-    // TODO: report other errors
+    // Expected when shutdown() closes the listen socket while accept() is pending
+    // (AsynchronousCloseException) or accept is re-armed on an already-closed channel
+    // (ClosedChannelException; AsynchronousCloseException extends it).
+    if (Std.isOfType(exc, ClosedChannelException))
+      return;
+    // TODO: report other accept errors
   }
 }
 #end
