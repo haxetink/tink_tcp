@@ -18,7 +18,7 @@ class NodeServer implements ServerObject {
     return {host: addr.address, port: addr.port};
   }
 
-  public function new(server, app:Handler, secure = false) {
+  private function new(server, app:Handler, secure = false) {
     this.native = server;
     this.app = app;
     // A TLS server hands off raw sockets on 'connection' before the handshake completes;
@@ -31,7 +31,7 @@ class NodeServer implements ServerObject {
 
   public function shutdown():Promise<Noise> {
     return new Promise((resolve, reject) -> {
-      native.close(cast((e:js.Error) -> if (e == null) resolve(Noise) else reject(Error.ofJsError(e))));
+      native.close(cast((e:js.lib.Error) -> if (e == null) resolve(Noise) else reject(Error.ofJsError(e))));
       return null;
     });
   }

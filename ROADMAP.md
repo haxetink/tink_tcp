@@ -118,26 +118,29 @@ Agents work **strictly in order** T1…T10: implementor completes a task → rev
 
 ### T3 — Node.js Client + Server
 
-**Status:** pending
+**Status:** done (reviewer: approve with notes)
 
 **Files:** `src/tink/tcp/clients/NodeClient.hx`, `src/tink/tcp/servers/NodeServer.hx`, `src/tink/tcp/connections/NodeConnection.hx` (rename/privatize as needed)
 
 #### Implementor checklist
 
-- [ ] Server: listen success → `Server`; each accept → `Session.run(app)`; `shutdown()` shuts listen socket
-- [ ] Client: dial success → start `Session.run` → resolve `Noise`; dial failure → reject; handler never runs on failure
-- [ ] TLS options still applied
-- [ ] Remove all `connected` / old `Client` interface usage
+- [x] Server: listen success → `Server`; each accept → `Session.run(app)`; `shutdown()` shuts listen socket
+- [x] Client: dial success → start `Session.run` → resolve `Noise`; dial failure → reject; handler never runs on failure
+- [x] TLS options still applied
+- [x] Remove all `connected` / old `Client` interface usage
 
 #### Reviewer checklist
 
-- [ ] Connect Promise does **not** wait for pipe completion
-- [ ] Connect failure rejects before handler
-- [ ] No old-API types left in Node layer
+- [x] Connect Promise does **not** wait for pipe completion
+- [x] Connect failure rejects before handler
+- [x] No old-API types left in Node layer
 
 #### Agent log
 
 <!-- implementor / reviewer append below -->
+
+- **Implementor:** Audited Node layer against T3 (core dial/accept/`Session.run`/TLS wiring already landed in T1–T2). Confirmed: bind listen → `Server`; accept/`secureConnection` → `Session.run`; `shutdown()` closes listen socket; dial success starts `Session.run` then resolves `Noise` (does not await pipe); dial `error` rejects without running handler; TLS opts still mapped on client/server. Privatized duplex: `NodeConnection` private ctor + `@:allow` for NodeClient/NodeServer; private `NodeServer` ctor; marked duplex as internal (not old `Connection`). Fixed `js.Error` → `js.lib.Error` in shutdown. Node typecheck of API stub + NodeClient/NodeServer/NodeConnection OK. Full `travix node` still blocked on T4 test rewrite. Intentional deferrals for reviewer: duplex type still named `NodeConnection` (T10 rename/purge); other platforms (T5–T8); tests/README (T4/T10).
+- **Reviewer:** Approve with notes. Node Client/Server meet T3: dial success → `Session.run` then resolve `Noise` (does not await pipe); `finish`/`done` ensures dial `error` rejects without handler; bind resolves on listen with accept/`secureConnection` → `Session.run`; `shutdown()` closes listen socket; TLS opts mapped on both sides; no `connected` / old instance-`Client` / public `Connection` in Node layer. Not incomplete or overreaching — semantics from T1–T2; T3 delta is privatization + `js.lib.Error`. Fix applied: `NodeConnection` fields made private (ctor already private; `@:allow` retained). Non-blockers deferred: type still named `NodeConnection` (T10); tests/README old API (T4/T10); other platforms (T5–T8). Node API stub typecheck re-confirmed. Safe to commit T3.
 
 ---
 
