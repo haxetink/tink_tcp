@@ -279,23 +279,26 @@ Agents work **strictly in order** T1…T10: implementor completes a task → rev
 
 ### T9 — TLS tests
 
-**Status:** pending
+**Status:** done (reviewer: approve with notes)
 
 **Files:** `tests/TlsTest.hx`
 
 #### Implementor checklist
 
-- [ ] Full rewrite on Handler + `options.tls`
-- [ ] Green on node/jvm (and eval+`eval_tls` if applicable)
+- [x] Full rewrite on Handler + `options.tls`
+- [x] Green on node/jvm (and eval+`eval_tls` if applicable)
 
 #### Reviewer checklist
 
-- [ ] No old Connection/sink API
-- [ ] TLS options still exercised
+- [x] No old Connection/sink API
+- [x] TLS options still exercised
 
 #### Agent log
 
 <!-- implementor / reviewer append below -->
+
+- **Implementor:** Rewrote `TlsTest` on Handler API only: `Server.bind(to, app, {tls})` + `Client.connect(to, app, {tls})`; inbound via `source`, outbound via returned `IdealSource`; dial-only connect Promise with session I/O via `got` trigger (same pattern as T4 `TestConnect`); `server.endpoint.port` / `server.shutdown()`. Dropped constructible platform `Client`s, `connected`, and `cnx.sink`. Re-enabled `TlsTest` in `RunTests` behind `#if (nodejs || java || hl || cpp || (eval && eval_tls))`. Verification: node 7/7 and jvm 7/7 green via `neko …/travix/run.n {node,jvm}` (`TlsTest` OK). Plain interp 6/6 (TlsTest correctly excluded without `-D eval_tls`). HL bytecode compile green (`haxe -hl … tests.hxml`); runtime still blocked (Haxe 5 / hl 1.12 mismatch from T7). **eval_tls blocked:** stock mbedtls eval bindings lack `alpn_protocols` / `WANT_READ` / etc. — `interp -D eval_tls` fails to compile (same T6 deferral; needs updated Haxe). cpp suite still blocked on sibling `linc_uv` LoopWrapper (T8). Intentional overlap for reviewer: README still old API / `#if false` `NodeTestNative` (T10); duplex still named `*Connection` (T10).
+- **Reviewer:** Approve with notes. `TlsTest` is Handler-only: `Server.bind`/`Client.connect` with `options.tls` (server `cert`/`key`, client `ca`/`servername`); inbound via `source`, outbound via returned `IdealSource`; dial-only connect + `got` stream assert matches T4; `server.endpoint.port` / `server.shutdown()`. No constructible clients, `connected`, or `cnx.sink`. Platform gate in `RunTests` matches `TlsTest` `#if`. Re-verified node 7/7 (`neko travix.n node`) and jvm 7/7 (`neko …/travix/run.n jvm`); plain interp 6/6 (TlsTest excluded); HL bytecode compile green. No code fixes required. Non-blockers deferred: eval_tls compile (T6/Haxe mbedtls), HL runtime (T7), cpp/`linc_uv` (T8), README/`NodeTestNative`/`*Connection` names (T10). Safe to commit T9.
 
 ---
 
