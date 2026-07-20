@@ -1,14 +1,13 @@
 #if java
 package tink.tcp.connections;
 
-import tink.tcp.Connection;
 import tink.io.Source;
 import tink.io.Sink;
 import tink.io.java.JavaTlsSession;
 import tink.io.java.JavaTlsSource;
 import tink.io.java.JavaTlsSink;
 
-class JavaTlsConnection implements Connection {
+class JavaTlsConnection {
   public final source:RealSource;
   public final sink:RealSink;
   public final local:Endpoint;

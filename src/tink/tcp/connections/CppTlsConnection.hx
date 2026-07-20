@@ -1,14 +1,13 @@
 #if cpp
 package tink.tcp.connections;
 
-import tink.tcp.Connection;
 import tink.io.Source;
 import tink.io.Sink;
 import tink.io.TlsSink;
 import tink.io.TlsSource;
 import tink.io.cpp.CppTlsSession;
 
-class CppTlsConnection implements Connection {
+class CppTlsConnection {
   public final source:RealSource;
   public final sink:RealSink;
   public final local:Endpoint;

@@ -1,17 +1,16 @@
 package tink.tcp.clients;
 
 #if nodejs
-import tink.tcp.Client;
 import tink.tcp.Client.ConnectOptions;
-import tink.tcp.Connection;
 import tink.tcp.connections.NodeConnection;
 
 using tink.CoreApi;
+using tink.io.Source;
 
-class NodeClient implements Client {
-  public function new() {}
+class NodeClient {
+  private function new() {}
 
-  public function connect(to:Endpoint, ?options:ConnectOptions):Promise<Connection> {
+  static public function connect(to:Endpoint, app:Handler, ?options:ConnectOptions):Promise<Noise> {
     return new Promise((resolve, reject) -> {
       var done = false;
       function finish(f:Void->Void) {
@@ -34,7 +33,13 @@ class NodeClient implements Client {
         js.node.Net.connect(to.port, to.host);
       }
       final event = tls != null ? 'secureConnect' : 'connect';
-      native.once(event, () -> finish(() -> resolve((new NodeConnection('Connection to $to', native) : Connection))));
+      native.once(event, () -> finish(() -> {
+        final duplex = new NodeConnection('Connection to $to', native);
+        app({source: duplex.source, local: duplex.local, peer: duplex.peer})
+          .pipeTo(duplex.sink, {end: true})
+          .handle(_ -> {});
+        resolve(Noise);
+      }));
       native.once('error', e -> finish(() -> reject(Error.ofJsError(e))));
       return function() {
         if (!done) {

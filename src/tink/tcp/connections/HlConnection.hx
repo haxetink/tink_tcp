@@ -6,10 +6,9 @@ import tink.io.Source;
 import tink.io.Sink;
 import tink.io.DuplexSink;
 import tink.io.DuplexSource;
-import tink.tcp.Connection;
 import tink.io.hl.HlUvStream;
 
-class HlConnection implements Connection {
+class HlConnection {
   public final source:RealSource;
   public final sink:RealSink;
   public final local:Endpoint;

@@ -6,10 +6,9 @@ import tink.io.Source;
 import tink.io.Sink;
 import tink.io.DuplexSink;
 import tink.io.DuplexSource;
-import tink.tcp.Connection;
 import tink.io.cpp.CppUvStream;
 
-class CppConnection implements Connection {
+class CppConnection {
   public final source:RealSource;
   public final sink:RealSink;
   public final local:Endpoint;

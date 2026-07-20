@@ -1,0 +1,300 @@
+# API2 Handler Overhaul — Task Map
+
+## Goal (locked)
+
+Hard-cut to:
+
+```haxe
+typedef IncomingConnection = {
+  final source:RealSource;
+  final local:Endpoint;
+  final peer:Endpoint;
+}
+typedef Handler = IncomingConnection->IdealSource;
+
+Client.connect(to:Endpoint, app:Handler, ?options:ConnectOptions):Promise<Noise>;
+Server.bind(to:Endpoint, app:Handler, ?options:BindOptions):Promise<Server>;
+
+interface Server {
+  var endpoint(get, never):Endpoint;
+  function shutdown():Promise<Noise>;
+}
+```
+
+**Client.connect Promise:** resolves when the TCP/TLS dial **succeeds**, rejects when it **fails**. Handler is started only after a successful connect. The Promise does **not** wait for the handler’s outbound pipe / session lifetime.
+
+**Handler semantics:** returned `IdealSource` is piped to the peer (`pipeTo(sink, {end: true})`). Aborting without draining inbound `source` is out of scope.
+
+**Server.bind:** takes `Handler` up front (no `connected` Signal). Returns a `Server` with `endpoint` + `shutdown` only.
+
+## Decisions (locked)
+
+- Keep TLS via `ConnectOptions` / `BindOptions`; bind stays on `Endpoint`
+- Static platform-switched `Client.connect` (mirror `Server.bind`)
+- **No** `OpenPort` type — bind returns `Server`
+- **No** backward compatibility: remove old signatures/types in the same overhaul
+- **No** traces of the previous API: delete `Connection`, `connected`, instance `Client` interface, dead `#if false` tests, README examples of the old shape, commented SysServer/runloop leftovers, etc. Internal duplex plumbing may exist but must not be named or exposed as the old public `Connection` API
+
+## Shared plumbing
+
+Platform code still has a private duplex (source + sink + endpoints). Add one shared runner:
+
+```haxe
+// e.g. tink.tcp.Session
+static function run(source, sink, local, peer, app:Handler):Void // or Promise ignored by connect
+  // app({source, local, peer}) -> IdealSource
+  // -> pipeTo(sink, {end: true})
+```
+
+- **Client:** on dial success → start `Session.run` → **then** resolve connect `Promise` with `Noise` (or resolve immediately after starting run; do not await pipe). On dial failure → reject; never call handler.
+- **Server:** on each accept → `Session.run` (fire-and-forget regarding bind’s Promise; bind’s Promise is only listen success/failure).
+
+Delete public `src/tink/tcp/Connection.hx`; rename/inline platform wrappers so nothing public still looks like the old `Connection` interface.
+
+## Protocol
+
+Agents work **strictly in order** T1…T10: implementor completes a task → reviewer signs off in that task’s agent log → next task. Do not start Tn+1 until reviewer approves Tn.
+
+---
+
+## Task list
+
+### T1 — Public types; delete old API surface
+
+**Status:** done (reviewer: approve with notes)
+
+**Files:** `src/tink/tcp/Client.hx`, `src/tink/tcp/Server.hx`, new `Handler.hx` (or colocated typedefs); **delete** `src/tink/tcp/Connection.hx`; strip `Server.hx` commented runloop/SysServer dead code
+
+#### Implementor checklist
+
+- [x] Add `IncomingConnection`, `Handler`
+- [x] `Client.connect(to, app, ?options):Promise<Noise>` — static `#if` dispatch only (no `interface Client`, no constructible client classes as the public entry)
+- [x] `Server.bind(to, app, ?options):Promise<Server>` — `Server` has `endpoint` + `shutdown` only; **no** `connected`, **no** `OpenPort`
+- [x] Keep `ConnectOptions` / `BindOptions`
+- [x] Delete `Connection` and every public reference to it
+- [x] No shims, deprecations, or dual APIs
+
+#### Reviewer checklist
+
+- [x] Signatures match goal (connect settles on dial; bind → `Server`)
+- [x] Zero public remnants of old API (`Connection`, `connected`, instance `Client`)
+- [x] No `OpenPort`
+
+#### Agent log
+
+<!-- implementor / reviewer append below -->
+
+- **Implementor:** Added `Handler.hx` (`IncomingConnection`, `Handler`). Rewrote `Client` as static `#if` dispatch `connect(to, app, ?options):Promise<Noise>`; rewrote `Server.bind(to, app, ?options)` returning `Server` with `endpoint` + `shutdown` only; deleted `Connection.hx` and stripped Server runloop/SysServer dead code. Updated platform clients/servers and duplex wrappers so nothing implements or exposes the old `Connection` / `connected` / instance-`Client` surface (handler wired via inline `pipeTo(..., {end: true})` pending T2 `Session.run`). Verified Node typecheck of new API stub; existing tests still target old API (T4).
+- **Reviewer:** Approve with notes. Diff matches T1: public signatures/options correct; `Connection.hx` gone; no `connected` / `OpenPort` / instance-`Client` in `src/`; platforms consistently start handler then resolve dial (do not await pipe); dead SysServer/runloop stripped. Inline `pipeTo` duplication is acceptable pre-T2 (not harmful overreach). Non-blockers deferred: platform `*Connection` duplex names (T10), README/tests still old API (T4/T10). Fix applied: private ctors on `Client` + platform clients so they are not constructible. Node typecheck of new API stub re-confirmed. Safe to commit T1.
+
+---
+
+### T2 — Shared `Session.run`
+
+**Status:** pending
+
+**Files:** new `src/tink/tcp/Session.hx` (name flexible); private duplex helpers only as needed
+
+#### Implementor checklist
+
+- [ ] `Session.run(...):` call handler, `pipeTo(sink, {end: true})`
+- [ ] No platform-specific code
+- [ ] Not part of public docs as a replacement for `Connection`
+
+#### Reviewer checklist
+
+- [ ] Pipe uses `{end: true}`
+- [ ] Suitable for fire-and-forget from client (after dial success) and server accept
+- [ ] Does not reintroduce a public `Connection` type
+
+#### Agent log
+
+<!-- implementor / reviewer append below -->
+
+---
+
+### T3 — Node.js Client + Server
+
+**Status:** pending
+
+**Files:** `src/tink/tcp/clients/NodeClient.hx`, `src/tink/tcp/servers/NodeServer.hx`, `src/tink/tcp/connections/NodeConnection.hx` (rename/privatize as needed)
+
+#### Implementor checklist
+
+- [ ] Server: listen success → `Server`; each accept → `Session.run(app)`; `shutdown()` shuts listen socket
+- [ ] Client: dial success → start `Session.run` → resolve `Noise`; dial failure → reject; handler never runs on failure
+- [ ] TLS options still applied
+- [ ] Remove all `connected` / old `Client` interface usage
+
+#### Reviewer checklist
+
+- [ ] Connect Promise does **not** wait for pipe completion
+- [ ] Connect failure rejects before handler
+- [ ] No old-API types left in Node layer
+
+#### Agent log
+
+<!-- implementor / reviewer append below -->
+
+---
+
+### T4 — Rewrite core tests (new API only)
+
+**Status:** pending
+
+**Files:** `tests/EchoTest.hx`, `tests/TestConnect.hx`, `tests/RunTests.hx`; **delete** `tests/TestAccept.hx` (old API)
+
+#### Implementor checklist
+
+- [ ] Tests use only Handler API (`bind`/`connect` with `app`; inbound via `source`; outbound via returned `IdealSource`)
+- [ ] Assert connect Promise on dial outcome where relevant; session I/O asserted via streams, not connect Promise lifetime
+- [ ] Use `server.endpoint` / `server.shutdown()`
+- [ ] `lix run travix node` green (non-TLS)
+- [ ] No `#if` client construction; no `cnx.sink` / `connected`
+
+#### Reviewer checklist
+
+- [ ] No references to removed APIs
+- [ ] Echo parallel/sequential still valid under new semantics
+- [ ] TestAccept gone (not `#if false`)
+
+#### Agent log
+
+<!-- implementor / reviewer append below -->
+
+---
+
+### T5 — JVM Client + Server
+
+**Status:** pending
+
+**Files:** `src/tink/tcp/clients/JavaClient.hx`, `src/tink/tcp/servers/JavaServer.hx`, Java connection wrappers
+
+#### Implementor checklist
+
+- [ ] Same dial/session semantics as Node; TLS intact
+- [ ] `lix run travix jvm` green
+
+#### Reviewer checklist
+
+- [ ] Connect Promise = dial only
+- [ ] `Server.shutdown` clean; accept loop intact
+- [ ] No old-API leftovers
+
+#### Agent log
+
+<!-- implementor / reviewer append below -->
+
+---
+
+### T6 — Eval Client + Server
+
+**Status:** pending
+
+**Files:** `src/tink/tcp/clients/EvalClient.hx`, `src/tink/tcp/servers/EvalServer.hx`
+
+#### Implementor checklist
+
+- [ ] Session wiring; honor `BindOptions.loop`
+- [ ] Connect Promise = dial only
+- [ ] `lix run travix interp` green
+
+#### Reviewer checklist
+
+- [ ] Loop keep-alive / shutdown preserved
+- [ ] No old-API leftovers
+
+#### Agent log
+
+<!-- implementor / reviewer append below -->
+
+---
+
+### T7 — HashLink Client + Server
+
+**Status:** pending
+
+**Files:** `src/tink/tcp/clients/HlClient.hx`, `src/tink/tcp/servers/HlServer.hx`
+
+#### Implementor checklist
+
+- [ ] Same semantics; honor HL loop option
+- [ ] Run HL tests if env allows; note skip in log otherwise
+
+#### Reviewer checklist
+
+- [ ] Connect Promise = dial only; UV shutdown path still used via pipe `{end: true}`
+- [ ] No old-API leftovers
+
+#### Agent log
+
+<!-- implementor / reviewer append below -->
+
+---
+
+### T8 — C++ Client + Server
+
+**Status:** pending
+
+**Files:** `src/tink/tcp/clients/CppClient.hx`, `src/tink/tcp/servers/CppServer.hx`
+
+#### Implementor checklist
+
+- [ ] Same semantics; TLS as today (ALPN unchanged)
+- [ ] `travix cpp` if env ready; else note skip
+
+#### Reviewer checklist
+
+- [ ] Connect Promise = dial only
+- [ ] No old-API leftovers; no DNS-scope creep
+
+#### Agent log
+
+<!-- implementor / reviewer append below -->
+
+---
+
+### T9 — TLS tests
+
+**Status:** pending
+
+**Files:** `tests/TlsTest.hx`
+
+#### Implementor checklist
+
+- [ ] Full rewrite on Handler + `options.tls`
+- [ ] Green on node/jvm (and eval+`eval_tls` if applicable)
+
+#### Reviewer checklist
+
+- [ ] No old Connection/sink API
+- [ ] TLS options still exercised
+
+#### Agent log
+
+<!-- implementor / reviewer append below -->
+
+---
+
+### T10 — Docs and final purge
+
+**Status:** pending
+
+**Files:** `README.md`, `ROADMAP.md`, any remaining `*Connection*` public names, dead comments, disabled tests
+
+#### Implementor checklist
+
+- [ ] README documents only Handler API + TLS; static `Client.connect` / `Server.bind`
+- [ ] Grep purge: `connected`, `RealSink` on TCP public API, `implements Client`, `OpenPort`, old README Client construction
+- [ ] Platform duplex types private/renamed so they are not the old public `Connection` contract
+- [ ] ROADMAP goal section reflects final API; residual TODOs only (DNS, ALPN, etc.)
+
+#### Reviewer checklist
+
+- [ ] Repo-wide: no traces of previous public API
+- [ ] Docs match implemented signatures (especially connect Promise = dial)
+- [ ] CI targets green
+
+#### Agent log
+
+<!-- implementor / reviewer append below -->

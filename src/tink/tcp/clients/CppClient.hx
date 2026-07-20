@@ -4,9 +4,7 @@ package tink.tcp.clients;
 import cpp.Callable;
 import cpp.Star;
 import sys.net.Host;
-import tink.tcp.Client;
 import tink.tcp.Client.ConnectOptions;
-import tink.tcp.Connection;
 import tink.tcp.connections.CppConnection;
 import tink.tcp.connections.CppTlsConnection;
 import tink.tcp.tls.TlsConfig;
@@ -15,23 +13,20 @@ import uv.*;
 import uv.Native.UvConnect;
 
 using tink.CoreApi;
+using tink.io.Source;
 
 private typedef ConnectCtx = {
-  client:CppClient,
   tcp:Tcp,
   to:Endpoint,
   options:Null<ConnectOptions>,
-  resolve:Connection->Void,
+  app:Handler,
+  resolve:Noise->Void,
   reject:Error->Void,
   connectReq:Connect,
 };
 
-class CppClient implements Client {
-  final loop:Loop;
-
-  public function new() {
-    this.loop = uvLoop();
-  }
+class CppClient {
+  private function new() {}
 
   static function uvLoop():Loop {
     #if target.threaded
@@ -42,7 +37,7 @@ class CppClient implements Client {
     #end
   }
 
-  public function connect(to:Endpoint, ?options:ConnectOptions):Promise<Connection> {
+  static public function connect(to:Endpoint, app:Handler, ?options:ConnectOptions):Promise<Noise> {
     return new Promise((resolve, reject) -> {
       final host = try new Host(to.host) catch (e:Dynamic) {
         reject(new Error('Failed to resolve ${to.host}: $e'));
@@ -57,7 +52,7 @@ class CppClient implements Client {
       }
 
       final tcp = new Tcp();
-      final initStatus = tcp.init(loop);
+      final initStatus = tcp.init(uvLoop());
       if (initStatus != 0) {
         reject(uvError(initStatus, 'Failed to init TCP client'));
         return null;
@@ -65,10 +60,10 @@ class CppClient implements Client {
 
       final connectReq = new Connect();
       final ctx:ConnectCtx = {
-        client: this,
         tcp: tcp,
         to: to,
         options: options,
+        app: app,
         resolve: resolve,
         reject: reject,
         connectReq: connectReq,
@@ -95,7 +90,11 @@ class CppClient implements Client {
     ctx.tcp.nodelay(true);
     final tls = ctx.options?.tls;
     if (tls == null) {
-      ctx.resolve((new CppConnection('Connection to ${ctx.to}', ctx.tcp) : Connection));
+      final duplex = new CppConnection('Connection to ${ctx.to}', ctx.tcp);
+      ctx.app({source: duplex.source, local: duplex.local, peer: duplex.peer})
+        .pipeTo(duplex.sink, {end: true})
+        .handle(_ -> {});
+      ctx.resolve(Noise);
       return;
     }
     switch TlsConfig.fromClient(tls) {
@@ -107,7 +106,11 @@ class CppClient implements Client {
           final session = new CppTlsSession(tlsCfg, ctx.tcp);
           session.handshake().handle(o -> switch o {
             case Success(_):
-              ctx.resolve((new CppTlsConnection('Connection to ${ctx.to}', session, null, ctx.to) : Connection));
+              final duplex = new CppTlsConnection('Connection to ${ctx.to}', session, null, ctx.to);
+              ctx.app({source: duplex.source, local: duplex.local, peer: duplex.peer})
+                .pipeTo(duplex.sink, {end: true})
+                .handle(_ -> {});
+              ctx.resolve(Noise);
             case Failure(e):
               closeTcp(ctx.tcp);
               ctx.reject(e);

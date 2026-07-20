@@ -2,9 +2,7 @@
 package tink.tcp.clients;
 
 import eval.luv.*;
-import tink.tcp.Client;
 import tink.tcp.Client.ConnectOptions;
-import tink.tcp.Connection;
 import tink.tcp.connections.EvalConnection;
 import tink.tcp.connections.EvalTlsConnection;
 import tink.tcp.eval.EvalLoop;
@@ -12,15 +10,13 @@ import tink.tcp.tls.TlsConfig;
 import tink.io.eval.EvalTlsSession;
 
 using tink.CoreApi;
+using tink.io.Source;
 
-class EvalClient implements Client {
-  final loop:Loop;
+class EvalClient {
+  private function new() {}
 
-  public function new(?loop:Loop) {
-    this.loop = loop ?? EvalLoop.current();
-  }
-
-  public function connect(to:Endpoint, ?options:ConnectOptions):Promise<Connection> {
+  static public function connect(to:Endpoint, app:Handler, ?options:ConnectOptions, ?loop:Loop):Promise<Noise> {
+    final l = loop ?? EvalLoop.current();
     final addr = switch SockAddr.ipv4(to.host, to.port) {
       case Ok(addr): addr;
       case Error(e):
@@ -28,7 +24,7 @@ class EvalClient implements Client {
     };
 
     return new Promise((resolve, reject) -> {
-      final tcp = switch Tcp.init(loop) {
+      final tcp = switch Tcp.init(l) {
         case Error(e):
           reject(luvError(e, 'Failed to init TCP client'));
           return null;
@@ -44,7 +40,11 @@ class EvalClient implements Client {
             tcp.noDelay(true);
             final tls = options?.tls;
             if (tls == null) {
-              resolve((new EvalConnection('Connection to $to', tcp) : Connection));
+              final duplex = new EvalConnection('Connection to $to', tcp);
+              app({source: duplex.source, local: duplex.local, peer: duplex.peer})
+                .pipeTo(duplex.sink, {end: true})
+                .handle(_ -> {});
+              resolve(Noise);
             } else {
               switch TlsConfig.fromClient(tls) {
                 case Failure(e):
@@ -55,7 +55,11 @@ class EvalClient implements Client {
                     final session = new EvalTlsSession(tlsCfg, tcp);
                     session.handshake().handle(o -> switch o {
                       case Success(_):
-                        resolve((new EvalTlsConnection('Connection to $to', session) : Connection));
+                        final duplex = new EvalTlsConnection('Connection to $to', session);
+                        app({source: duplex.source, local: duplex.local, peer: duplex.peer})
+                          .pipeTo(duplex.sink, {end: true})
+                          .handle(_ -> {});
+                        resolve(Noise);
                       case Failure(e):
                         Handle.close(tcp, noop);
                         reject(e);

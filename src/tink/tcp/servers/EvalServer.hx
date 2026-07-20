@@ -3,47 +3,51 @@ package tink.tcp.servers;
 
 import eval.luv.*;
 import tink.tcp.Server;
-import tink.tcp.Connection;
 import tink.tcp.connections.EvalConnection;
 import tink.tcp.connections.EvalTlsConnection;
 import tink.tcp.eval.EvalLoop;
 import tink.tcp.tls.TlsConfig;
+import tink.io.Source;
+import tink.io.Sink;
 import tink.io.eval.EvalTlsSession;
 
 using tink.CoreApi;
+using tink.io.Source;
 using eval.luv.Stream;
 
 class EvalServer implements ServerObject {
   final native:Tcp;
   final loop:Loop;
-  final trigger:SignalTrigger<Connection>;
+  final app:Handler;
   final tls:Null<TlsConfig>;
 
-  public final connected:Signal<Connection>;
+  public var endpoint(get, never):Endpoint;
 
-  public var port(get, never):Int;
-
-  function get_port() {
-    switch native.getSockName() {
-      case Ok(addr): return addr.port ?? 0;
-      case Error(_): return 0;
-    }
+  function get_endpoint() {
+    return switch native.getSockName() {
+      case Ok(addr): (addr : Endpoint);
+      case Error(_): {host: '?', port: 0};
+    };
   }
 
-  function new(server:Tcp, loop:Loop, trigger:SignalTrigger<Connection>, ?tls:TlsConfig) {
+  function new(server:Tcp, loop:Loop, app:Handler, ?tls:TlsConfig) {
     this.native = server;
     this.loop = loop;
-    this.trigger = trigger;
+    this.app = app;
     this.tls = tls;
-    this.connected = trigger;
   }
 
-  public function close():Promise<Noise> {
+  public function shutdown():Promise<Noise> {
     return new Promise((resolve, reject) -> {
-      trigger.clear();
       Handle.close(native, () -> resolve(Noise));
       return null;
     });
+  }
+
+  function start(source:RealSource, sink:RealSink, local:Endpoint, peer:Endpoint) {
+    app({source: source, local: local, peer: peer})
+      .pipeTo(sink, {end: true})
+      .handle(_ -> {});
   }
 
   function acceptClient(client:Tcp) {
@@ -53,14 +57,16 @@ class EvalServer implements ServerObject {
       case Error(_): 'Connection';
     };
     if (tls == null) {
-      trigger.trigger((new EvalConnection(name, client) : Connection));
+      final duplex = new EvalConnection(name, client);
+      start(duplex.source, duplex.sink, duplex.local, duplex.peer);
       return;
     }
     try {
       final session = new EvalTlsSession(tls, client);
       session.handshake().handle(o -> switch o {
         case Success(_):
-          trigger.trigger((new EvalTlsConnection(name, session) : Connection));
+          final duplex = new EvalTlsConnection(name, session);
+          start(duplex.source, duplex.sink, duplex.local, duplex.peer);
         case Failure(_):
           Handle.close(client, noop);
       });
@@ -69,7 +75,7 @@ class EvalServer implements ServerObject {
     }
   }
 
-  static public function bind(target:Endpoint, ?options:BindOptions):Promise<Server> {
+  static public function bind(to:Endpoint, app:Handler, ?options:BindOptions):Promise<Server> {
     final l = options?.loop ?? EvalLoop.current();
     final tls:Null<TlsConfig> = switch options?.tls {
       case null: null;
@@ -87,10 +93,10 @@ class EvalServer implements ServerObject {
         case Ok(v): v;
       };
 
-      final addr = switch SockAddr.ipv4(target.host, target.port) {
+      final addr = switch SockAddr.ipv4(to.host, to.port) {
         case Error(e):
           Handle.close(server, noop);
-          reject(luvError(e, 'Failed to parse bind address for $target'));
+          reject(luvError(e, 'Failed to parse bind address for $to'));
           return null;
         case Ok(v): v;
       };
@@ -98,12 +104,12 @@ class EvalServer implements ServerObject {
       switch server.bind(addr) {
         case Error(e):
           Handle.close(server, noop);
-          reject(luvError(e, 'Failed to bind server on $target'));
+          reject(luvError(e, 'Failed to bind server on $to'));
           return null;
         case Ok(_):
       }
 
-      final instance = new EvalServer(server, l, Signal.trigger(), tls);
+      final instance = new EvalServer(server, l, app, tls);
       server.listen(function(result) {
         switch result {
           case Error(e):

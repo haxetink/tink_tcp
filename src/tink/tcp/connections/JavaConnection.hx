@@ -1,11 +1,10 @@
 package tink.tcp.connections;
 
 #if java
-import tink.tcp.Connection;
 import tink.io.Source;
 import tink.io.Sink;
 
-class JavaConnection implements Connection {
+class JavaConnection {
 	public final source:RealSource;
 	public final sink:RealSink;
 	public final local:Endpoint;

@@ -1,11 +1,10 @@
 package tink.tcp.connections;
 
 #if nodejs
-import tink.tcp.Connection;
 import tink.io.Source;
 import tink.io.Sink;
 
-class NodeConnection implements Connection {
+class NodeConnection {
 	public final source:RealSource;
 	public final sink:RealSink;
 	public final local:Endpoint;

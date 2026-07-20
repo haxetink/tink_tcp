@@ -4,9 +4,7 @@ package tink.tcp.clients;
 import hl.uv.Loop;
 import hl.uv.Tcp;
 import sys.net.Host;
-import tink.tcp.Client;
 import tink.tcp.Client.ConnectOptions;
-import tink.tcp.Connection;
 import tink.tcp.connections.HlConnection;
 import tink.tcp.connections.HlTlsConnection;
 import tink.tcp.hl.HlLoop;
@@ -14,17 +12,15 @@ import tink.tcp.tls.TlsConfig;
 import tink.io.hl.HlTlsSession;
 
 using tink.CoreApi;
+using tink.io.Source;
 
-class HlClient implements Client {
-  final loop:Loop;
+class HlClient {
+  private function new() {}
 
-  public function new(?loop:Loop) {
-    this.loop = loop ?? HlLoop.current();
-  }
-
-  public function connect(to:Endpoint, ?options:ConnectOptions):Promise<Connection> {
+  static public function connect(to:Endpoint, app:Handler, ?options:ConnectOptions, ?loop:Loop):Promise<Noise> {
+    final l = loop ?? HlLoop.current();
     return new Promise((resolve, reject) -> {
-      final tcp = new Tcp(loop);
+      final tcp = new Tcp(l);
       final host = try new Host(to.host) catch (e:Dynamic) {
         tcp.close();
         reject(new Error('Failed to resolve ${to.host}: $e'));
@@ -39,7 +35,11 @@ class HlClient implements Client {
         }
         final tls = options?.tls;
         if (tls == null) {
-          resolve((new HlConnection('Connection to $to', tcp, null, to) : Connection));
+          final duplex = new HlConnection('Connection to $to', tcp, null, to);
+          app({source: duplex.source, local: duplex.local, peer: duplex.peer})
+            .pipeTo(duplex.sink, {end: true})
+            .handle(_ -> {});
+          resolve(Noise);
         } else {
           switch TlsConfig.fromClient(tls) {
             case Failure(e):
@@ -50,7 +50,11 @@ class HlClient implements Client {
                 final session = new HlTlsSession(tlsCfg, tcp);
                 session.handshake().handle(o -> switch o {
                   case Success(_):
-                    resolve((new HlTlsConnection('Connection to $to', session, null, to) : Connection));
+                    final duplex = new HlTlsConnection('Connection to $to', session, null, to);
+                    app({source: duplex.source, local: duplex.local, peer: duplex.peer})
+                      .pipeTo(duplex.sink, {end: true})
+                      .handle(_ -> {});
+                    resolve(Noise);
                   case Failure(e):
                     tcp.close();
                     reject(e);

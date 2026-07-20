@@ -5,46 +5,44 @@ import cpp.Callable;
 import cpp.Star;
 import sys.net.Host;
 import tink.tcp.Server;
-import tink.tcp.Connection;
 import tink.tcp.connections.CppConnection;
 import tink.tcp.connections.CppTlsConnection;
 import tink.tcp.tls.TlsConfig;
+import tink.io.Source;
+import tink.io.Sink;
 import tink.io.cpp.CppTlsSession;
 import uv.*;
 import uv.Native.UvStream;
 
 using tink.CoreApi;
+using tink.io.Source;
 
 class CppServer implements ServerObject {
   final native:Tcp;
   final loop:Loop;
-  final trigger:SignalTrigger<Connection>;
+  final app:Handler;
   final tls:Null<TlsConfig>;
   final boundPort:Int;
   final boundHost:String;
   var closeResolve:Null<Noise->Void>;
 
-  public final connected:Signal<Connection>;
+  public var endpoint(get, never):Endpoint;
 
-  public var port(get, never):Int;
+  function get_endpoint()
+    return {host: boundHost, port: boundPort};
 
-  function get_port()
-    return boundPort;
-
-  function new(server:Tcp, loop:Loop, trigger:SignalTrigger<Connection>, boundHost:String, boundPort:Int, ?tls:TlsConfig) {
+  function new(server:Tcp, loop:Loop, app:Handler, boundHost:String, boundPort:Int, ?tls:TlsConfig) {
     this.native = server;
     this.loop = loop;
-    this.trigger = trigger;
+    this.app = app;
     this.tls = tls;
     this.boundHost = boundHost;
     this.boundPort = boundPort;
-    this.connected = trigger;
     server.asHandle().setData(this);
   }
 
-  public function close():Promise<Noise> {
+  public function shutdown():Promise<Noise> {
     return new Promise((resolve, reject) -> {
-      trigger.clear();
       final h = native.asHandle();
       if (h.isClosing()) {
         resolve(Noise);
@@ -67,6 +65,12 @@ class CppServer implements ServerObject {
     }
   }
 
+  function start(source:RealSource, sink:RealSink, local:Endpoint, peer:Endpoint) {
+    app({source: source, local: local, peer: peer})
+      .pipeTo(sink, {end: true})
+      .handle(_ -> {});
+  }
+
   function acceptClient(client:Tcp) {
     client.nodelay(true);
     final peer = client.getPeerAddress();
@@ -74,14 +78,16 @@ class CppServer implements ServerObject {
     final local:Endpoint = {host: boundHost, port: boundPort};
     final peerEp:Endpoint = {host: peer.host, port: peer.port};
     if (tls == null) {
-      trigger.trigger((new CppConnection(name, client, local, peerEp) : Connection));
+      final duplex = new CppConnection(name, client, local, peerEp);
+      start(duplex.source, duplex.sink, duplex.local, duplex.peer);
       return;
     }
     try {
       final session = new CppTlsSession(tls, client);
       session.handshake().handle(o -> switch o {
         case Success(_):
-          trigger.trigger((new CppTlsConnection(name, session, local, peerEp) : Connection));
+          final duplex = new CppTlsConnection(name, session, local, peerEp);
+          start(duplex.source, duplex.sink, duplex.local, duplex.peer);
         case Failure(_):
           closeTcp(client);
       });
@@ -99,7 +105,7 @@ class CppServer implements ServerObject {
     #end
   }
 
-  static public function bind(target:Endpoint, ?options:BindOptions):Promise<Server> {
+  static public function bind(to:Endpoint, app:Handler, ?options:BindOptions):Promise<Server> {
     final l = uvLoop();
     final tls:Null<TlsConfig> = switch options?.tls {
       case null: null;
@@ -111,7 +117,7 @@ class CppServer implements ServerObject {
     };
 
     return new Promise((resolve, reject) -> {
-      final hostName = target.host == '0' || target.host == '' ? '0.0.0.0' : target.host;
+      final hostName = to.host == '0' || to.host == '' ? '0.0.0.0' : to.host;
       var bindHost = hostName;
       try {
         final resolved = new Host(hostName);
@@ -119,9 +125,9 @@ class CppServer implements ServerObject {
       } catch (_:Dynamic) {}
 
       final addr = new SockAddrIn();
-      final addrStatus = addr.ip4Addr(bindHost, target.port);
+      final addrStatus = addr.ip4Addr(bindHost, to.port);
       if (addrStatus != 0) {
-        reject(uvError(addrStatus, 'Failed to parse bind address for $target'));
+        reject(uvError(addrStatus, 'Failed to parse bind address for $to'));
         return null;
       }
 
@@ -135,16 +141,16 @@ class CppServer implements ServerObject {
       final bindStatus = server.bind(addr, 0);
       if (bindStatus != 0) {
         closeTcp(server);
-        reject(uvError(bindStatus, 'Failed to bind server on $target'));
+        reject(uvError(bindStatus, 'Failed to bind server on $to'));
         return null;
       }
 
       final sock = server.getSockAddress();
-      final instance = new CppServer(server, l, Signal.trigger(), sock.host, sock.port, tls);
+      final instance = new CppServer(server, l, app, sock.host, sock.port, tls);
       final listenStatus = server.asStream().listen(128, Callable.fromStaticFunction(onConnection));
       if (listenStatus != 0) {
         closeTcp(server);
-        reject(uvError(listenStatus, 'Failed to listen on $target'));
+        reject(uvError(listenStatus, 'Failed to listen on $to'));
         return null;
       }
 

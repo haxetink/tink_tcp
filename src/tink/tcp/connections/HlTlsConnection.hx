@@ -1,14 +1,13 @@
 #if hl
 package tink.tcp.connections;
 
-import tink.tcp.Connection;
 import tink.io.Source;
 import tink.io.Sink;
 import tink.io.TlsSink;
 import tink.io.TlsSource;
 import tink.io.hl.HlTlsSession;
 
-class HlTlsConnection implements Connection {
+class HlTlsConnection {
   public final source:RealSource;
   public final sink:RealSink;
   public final local:Endpoint;

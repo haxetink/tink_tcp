@@ -1,14 +1,13 @@
 #if eval
 package tink.tcp.connections;
 
-import tink.tcp.Connection;
 import tink.io.Source;
 import tink.io.Sink;
 import tink.io.TlsSink;
 import tink.io.TlsSource;
 import tink.io.eval.EvalTlsSession;
 
-class EvalTlsConnection implements Connection {
+class EvalTlsConnection {
   public final source:RealSource;
   public final sink:RealSink;
   public final local:Endpoint;

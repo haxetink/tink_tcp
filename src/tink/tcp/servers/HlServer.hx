@@ -5,60 +5,66 @@ import hl.uv.Loop;
 import hl.uv.Tcp;
 import sys.net.Host;
 import tink.tcp.Server;
-import tink.tcp.Connection;
 import tink.tcp.connections.HlConnection;
 import tink.tcp.connections.HlTlsConnection;
 import tink.tcp.hl.HlLoop;
 import tink.tcp.tls.TlsConfig;
+import tink.io.Source;
+import tink.io.Sink;
 import tink.io.hl.HlTlsSession;
 
 using tink.CoreApi;
+using tink.io.Source;
 
 class HlServer implements ServerObject {
   final native:Tcp;
   final loop:Loop;
-  final trigger:SignalTrigger<Connection>;
+  final app:Handler;
   final tls:Null<TlsConfig>;
   final boundPort:Int;
   final boundHost:String;
 
-  public final connected:Signal<Connection>;
+  public var endpoint(get, never):Endpoint;
 
-  public var port(get, never):Int;
+  function get_endpoint()
+    return {host: boundHost, port: boundPort};
 
-  function get_port()
-    return boundPort;
-
-  function new(server:Tcp, loop:Loop, trigger:SignalTrigger<Connection>, boundHost:String, boundPort:Int, ?tls:TlsConfig) {
+  function new(server:Tcp, loop:Loop, app:Handler, boundHost:String, boundPort:Int, ?tls:TlsConfig) {
     this.native = server;
     this.loop = loop;
-    this.trigger = trigger;
+    this.app = app;
     this.tls = tls;
     this.boundHost = boundHost;
     this.boundPort = boundPort;
-    this.connected = trigger;
   }
 
-  public function close():Promise<Noise> {
+  public function shutdown():Promise<Noise> {
     return new Promise((resolve, reject) -> {
-      trigger.clear();
       native.close(() -> resolve(Noise));
       return null;
     });
+  }
+
+  function start(source:RealSource, sink:RealSink, local:Endpoint, peer:Endpoint) {
+    app({source: source, local: local, peer: peer})
+      .pipeTo(sink, {end: true})
+      .handle(_ -> {});
   }
 
   function acceptClient(client:hl.uv.Stream) {
     final name = 'Connection';
     final local:Endpoint = {host: boundHost, port: boundPort};
     if (tls == null) {
-      trigger.trigger((new HlConnection(name, client, local) : Connection));
+      final duplex = new HlConnection(name, client, local);
+      start(duplex.source, duplex.sink, duplex.local, duplex.peer);
       return;
     }
     try {
       final session = new HlTlsSession(tls, client);
       session.handshake().handle(o -> switch o {
         case Success(_):
-          trigger.trigger((new HlTlsConnection(name, session, local) : Connection));
+          final duplex = new HlTlsConnection(name, session, local);
+          start(duplex.source, duplex.sink, duplex.local, duplex.peer);
         case Failure(_):
           client.close();
       });
@@ -67,7 +73,7 @@ class HlServer implements ServerObject {
     }
   }
 
-  static public function bind(target:Endpoint, ?options:BindOptions):Promise<Server> {
+  static public function bind(to:Endpoint, app:Handler, ?options:BindOptions):Promise<Server> {
     final l = options?.loop ?? HlLoop.current();
     final tls:Null<TlsConfig> = switch options?.tls {
       case null: null;
@@ -79,8 +85,8 @@ class HlServer implements ServerObject {
     };
 
     return new Promise((resolve, reject) -> {
-      final hostName = target.host;
-      var port = target.port;
+      final hostName = to.host;
+      var port = to.port;
       // hl.uv.Tcp has no getsockname; probe an ephemeral port when binding to 0.
       if (port == 0) {
         try {
@@ -89,7 +95,7 @@ class HlServer implements ServerObject {
           port = probe.host().port;
           probe.close();
         } catch (e:Dynamic) {
-          reject(new Error('Failed to allocate ephemeral port for $target: $e'));
+          reject(new Error('Failed to allocate ephemeral port for $to: $e'));
           return null;
         }
       }
@@ -103,7 +109,7 @@ class HlServer implements ServerObject {
         return null;
       }
 
-      final instance = new HlServer(server, l, Signal.trigger(), hostName, port, tls);
+      final instance = new HlServer(server, l, app, hostName, port, tls);
       try {
         server.listen(128, () -> {
           try {
