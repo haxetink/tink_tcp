@@ -1,6 +1,5 @@
 package;
 
-import tink.io.*;
 import tink.tcp.*;
 
 using StringTools;
@@ -9,43 +8,43 @@ using tink.CoreApi;
 
 @:asserts
 class TestConnect {
-  final client:Client =
-    #if java
-    (new tink.tcp.clients.JavaClient() : Client);
-    #elseif eval
-    (new tink.tcp.clients.EvalClient() : Client);
-    #elseif hl
-    (new tink.tcp.clients.HlClient() : Client);
-    #elseif cpp
-    (new tink.tcp.clients.CppClient() : Client);
-    #else
-    (new tink.tcp.clients.NodeClient() : Client);
-    #end
-
   public function new() {}
 
-  @:describe('Read from a web server')
+  @:describe('Read from a local echo-style HTTP responder')
   public function connect() {
-    return Server.bind(0).next(server -> {
-      server.connected.handle(cnx -> {
-        final body = 'OK';
-        final response = 'HTTP/1.1 200 OK\r\nContent-Length: ${body.length}\r\nConnection: close\r\n\r\n$body';
-        (response : RealSource).pipeTo(cnx.sink, {end: true});
-        cnx.source.all(); // drain the source, on nodejs this is required to ensure the connection is closed on the server
-      });
-
-
-      client.connect({host: '127.0.0.1', port: server.port})
-        .next(cnx -> {
-          final req:RealSource = 'GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n';
-          req.pipeTo(cnx.sink, {end: true}).next(_ -> cnx.source.all());
-        })
+    return Server.bind(0, incoming -> {
+      final body = 'OK';
+      final response = 'HTTP/1.1 200 OK\r\nContent-Length: ${body.length}\r\nConnection: close\r\n\r\n$body';
+      // Drain inbound so Node closes cleanly; outbound is the returned IdealSource.
+      incoming.source.all().handle(_ -> {});
+      return (response : IdealSource);
+    }).next(server -> {
+      final got = Promise.trigger();
+      Client.connect(server.endpoint, incoming -> {
+        incoming.source.all().handle(got.trigger);
+        return ('GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n' : IdealSource);
+      })
+        .next(_ -> got) // dial succeeded; assert session I/O via stream, not connect lifetime
         .next(chunk -> {
           asserts.assert(chunk.length > 0);
           asserts.assert(chunk.toString().startsWith('HTTP'));
         })
-        .next(_ -> server.close())
+        .next(_ -> server.shutdown())
         .next(_ -> asserts.done());
+    });
+  }
+
+  @:describe('Connect Promise rejects when dial fails')
+  public function connectFailure() {
+    // Nothing listening on this port — dial must reject and handler must never run.
+    var handlerRan = false;
+    return Client.connect({host: '127.0.0.1', port: 1}, _ -> {
+      handlerRan = true;
+      return Source.EMPTY;
+    }).asFuture().flatMap(o -> {
+      asserts.assert(!o.isSuccess());
+      asserts.assert(!handlerRan);
+      return asserts.done();
     });
   }
 }

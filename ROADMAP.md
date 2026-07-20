@@ -146,27 +146,30 @@ Agents work **strictly in order** T1…T10: implementor completes a task → rev
 
 ### T4 — Rewrite core tests (new API only)
 
-**Status:** pending
+**Status:** done (reviewer: approve with notes)
 
 **Files:** `tests/EchoTest.hx`, `tests/TestConnect.hx`, `tests/RunTests.hx`; **delete** `tests/TestAccept.hx` (old API)
 
 #### Implementor checklist
 
-- [ ] Tests use only Handler API (`bind`/`connect` with `app`; inbound via `source`; outbound via returned `IdealSource`)
-- [ ] Assert connect Promise on dial outcome where relevant; session I/O asserted via streams, not connect Promise lifetime
-- [ ] Use `server.endpoint` / `server.shutdown()`
-- [ ] `lix run travix node` green (non-TLS)
-- [ ] No `#if` client construction; no `cnx.sink` / `connected`
+- [x] Tests use only Handler API (`bind`/`connect` with `app`; inbound via `source`; outbound via returned `IdealSource`)
+- [x] Assert connect Promise on dial outcome where relevant; session I/O asserted via streams, not connect Promise lifetime
+- [x] Use `server.endpoint` / `server.shutdown()`
+- [x] `lix run travix node` green (non-TLS)
+- [x] No `#if` client construction; no `cnx.sink` / `connected`
 
 #### Reviewer checklist
 
-- [ ] No references to removed APIs
-- [ ] Echo parallel/sequential still valid under new semantics
-- [ ] TestAccept gone (not `#if false`)
+- [x] No references to removed APIs
+- [x] Echo parallel/sequential still valid under new semantics
+- [x] TestAccept gone (not `#if false`)
 
 #### Agent log
 
 <!-- implementor / reviewer append below -->
+
+- **Implementor:** Rewrote `EchoTest` / `TestConnect` on Handler API only: `Server.bind(to, app)` + `Client.connect(to, app)`; inbound via `source`, outbound via returned `IdealSource`; `server.endpoint` / `server.shutdown()`. Echo sequential/parallel keep the same length expectations (session I/O via streams; connect Promise is dial-only). Added `connectFailure` asserting dial reject without running handler. Deleted `tests/TestAccept.hx`. Excluded `TlsTest` from `RunTests` until T9 (still old API — intentional deferral). Verification: Node suite green (6/6) via travix-equivalent `haxe … tests.hxml` + `node bin/node/tests.js`, and `neko …/travix/run.n node` (exit 0). Note: `lix run travix node` fails in this env (`haxelib` shim broken / SyntaxHub not resolved under `haxelib run-dir`); same build+run path that travix uses is green. Intentional overlap for reviewer: `TlsTest.hx` / `NodeTestNative.hx` still old API (T9/T10); README still old (T10).
+- **Reviewer:** Approve with notes. Active suite (`EchoTest`, `TestConnect`, `RunTests`) uses Handler-only `bind`/`connect`, `server.endpoint`/`shutdown`, dial-vs-stream assertions (`connect` + `got` trigger; `connectFailure` rejects without handler). Echo sequential/parallel keep prior length expectations and pass under dial-only connect. `TestAccept.hx` deleted (not `#if false`). `TlsTest` exclusion + leftover old API in `TlsTest.hx` / `#if false` `NodeTestNative.hx` justified for T9/T10. No code fixes required. Re-verified Node 6/6 via `neko …/travix/run.n node` (`lix run travix node` still broken on haxelib shim in this env). Safe to commit T4.
 
 ---
 

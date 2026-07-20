@@ -1,11 +1,9 @@
 package;
 
 import haxe.io.*;
-import tink.io.Sink;
 import tink.tcp.*;
 
 using tink.io.Source;
-using tink.io.PipeResult;
 using tink.CoreApi;
 using Lambda;
 
@@ -14,74 +12,44 @@ class EchoTest {
   final total = 10;
   final message = Bytes.ofString([for(i in 0...10000) 'Is it me you\'re looking for $i?'].join(' '));
   final echoer = 'hello\r\n';
-  final client:Client =
-    #if java
-    new tink.tcp.clients.JavaClient();
-    #elseif eval
-    new tink.tcp.clients.EvalClient();
-    #elseif hl
-    new tink.tcp.clients.HlClient();
-    #elseif cpp
-    new tink.tcp.clients.CppClient();
-    #else
-    new tink.tcp.clients.NodeClient();
-    #end
 
   public function new() {}
 
   @:variant(this.sequential, this.message.length + this.echoer.length * this.total)
   @:variant(this.parallel, (this.message.length + this.echoer.length) * this.total)
-  public function echo(fn:(Int, Int) -> Promise<Int>, expected:Int) {
-    final isParallel = expected == (message.length + echoer.length) * total;
-    return Server.bind(0).next(server -> {
-      var echoed = 0;
-      final serverTask = Future.trigger();
-      server.connected.handle(cnx -> {
-        (echoer : RealSource).append(cnx.source).pipeTo(cnx.sink, {end: true})
-          .handle(v -> {
-            var ok = switch v {
-              case AllWritten: true;
-              case SinkEnded(_, _): isParallel;
-              default: false;
-            };
-            asserts.assert(ok);
-            if (++echoed == total) serverTask.trigger(Noise);
-          });
-      });
-
-      final clientTask = fn(total, server.port)
-        .next(length -> asserts.assert(length == expected));
-
-      Promise.inParallel([serverTask, clientTask])
-        .next(_ -> server.close())
+  public function echo(fn:(Int, Endpoint) -> Promise<Int>, expected:Int) {
+    return Server.bind(0, incoming ->
+      (echoer : IdealSource).append(incoming.source.idealize(_ -> Source.EMPTY))
+    ).next(server -> {
+      fn(total, server.endpoint)
+        .next(length -> asserts.assert(length == expected))
+        .next(_ -> server.shutdown())
         .next(_ -> asserts.done());
     });
   }
 
-  function sequential(total:Int, port:Int) {
+  function sequential(total:Int, to:Endpoint) {
     var last:RealSource = message;
-    final promise = Promise.inSequence([for(i in 0...total)
+    return Promise.inSequence([for(i in 0...total)
       Promise.lazy(() -> {
-        client.connect(port).next(cnx -> {
-          last.pipeTo(cnx.sink, {end: true}).next(result -> {
-            last = cnx.source;
-          });
+        final outbound = last;
+        return Client.connect(to, incoming -> {
+          last = incoming.source;
+          return outbound.idealize(_ -> Source.EMPTY);
         });
       })
-    ]);
-    return promise
+    ])
       .next(_ -> last.all())
       .next(chunk -> chunk.length);
   }
 
-  function parallel(total:Int, port:Int) {
+  function parallel(total:Int, to:Endpoint) {
     return Promise.inParallel([for(i in 0...total) {
-      client.connect(port).next(cnx -> {
-        final write:RealSource = message;
-        return write.pipeTo(cnx.sink, {end: true})
-          .next(_ -> cnx.source.all())
-          .next(chunk -> chunk.length);
-      });
+      final got = Promise.trigger();
+      Client.connect(to, incoming -> {
+        incoming.source.all().handle(got.trigger);
+        return (message : IdealSource);
+      }).next(_ -> got).next(chunk -> chunk.length);
     }]).next(v -> v.fold((v, total) -> total + v, 0));
   }
 }
