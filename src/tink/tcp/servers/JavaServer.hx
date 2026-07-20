@@ -3,8 +3,8 @@ package tink.tcp.servers;
 #if java
 import tink.tcp.Server;
 import tink.tcp.Server.BindOptions;
-import tink.tcp.connections.JavaConnection;
-import tink.tcp.connections.JavaTlsConnection;
+import tink.tcp.connections.JavaDuplex;
+import tink.tcp.connections.JavaTlsDuplex;
 import tink.tcp.tls.TlsConfig;
 import tink.io.java.JavaTlsSession;
 import tink.io.java.OnMainThread;
@@ -46,7 +46,7 @@ class JavaServer implements ServerObject {
 
   function onAccepted(socket:AsynchronousSocketChannel) {
     if (tls == null) {
-      final duplex = new JavaConnection('Connection from ${socket.getRemoteAddress()}', socket);
+      final duplex = new JavaDuplex('Connection from ${socket.getRemoteAddress()}', socket);
       Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
       acceptNext();
     } else {
@@ -54,7 +54,7 @@ class JavaServer implements ServerObject {
       tlsSession.handshake().next(_ -> tlsSession).handle(o -> {
         switch o {
           case Success(s):
-            final duplex = new JavaTlsConnection('Connection from ${socket.getRemoteAddress()}', s);
+            final duplex = new JavaTlsDuplex('Connection from ${socket.getRemoteAddress()}', s);
             Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
             acceptNext();
           case Failure(e):

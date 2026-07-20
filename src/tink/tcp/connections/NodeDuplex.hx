@@ -4,16 +4,16 @@ package tink.tcp.connections;
 import tink.io.Source;
 import tink.io.Sink;
 
-/** Internal Node duplex (source/sink/endpoints). Not the old public Connection API. */
+/** Internal duplex plumbing for Session.run. */
 @:allow(tink.tcp.clients.NodeClient)
 @:allow(tink.tcp.servers.NodeServer)
-class NodeConnection {
-  final source:RealSource;
-  final sink:RealSink;
-  final local:Endpoint;
-  final peer:Endpoint;
+class NodeDuplex {
+  private final source:RealSource;
+  private final sink:RealSink;
+  private final local:Endpoint;
+  private final peer:Endpoint;
 
-  function new(name:String, native:js.node.net.Socket) {
+  private function new(name:String, native:js.node.net.Socket) {
     local = {host: native.localAddress, port: native.localPort};
     peer = {host: native.remoteAddress, port: native.remotePort};
     source = Source.ofNodeStream('Incoming stream of $name', native);

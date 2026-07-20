@@ -3,10 +3,10 @@ package tink.tcp.servers;
 
 import eval.luv.*;
 import tink.tcp.Server;
-import tink.tcp.connections.EvalConnection;
+import tink.tcp.connections.EvalDuplex;
 import tink.tcp.eval.EvalLoop;
 #if eval_tls
-import tink.tcp.connections.EvalTlsConnection;
+import tink.tcp.connections.EvalTlsDuplex;
 import tink.tcp.tls.TlsConfig;
 import tink.io.eval.EvalTlsSession;
 #end
@@ -59,7 +59,7 @@ class EvalServer implements ServerObject {
         final session = new EvalTlsSession(tls, client);
         session.handshake().handle(o -> switch o {
           case Success(_):
-            final duplex = new EvalTlsConnection(name, session);
+            final duplex = new EvalTlsDuplex(name, session);
             Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
           case Failure(_):
             Handle.close(client, noop);
@@ -70,7 +70,7 @@ class EvalServer implements ServerObject {
       return;
     }
     #end
-    final duplex = new EvalConnection(name, client);
+    final duplex = new EvalDuplex(name, client);
     Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
   }
 

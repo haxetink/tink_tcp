@@ -3,10 +3,10 @@ package tink.tcp.clients;
 
 import eval.luv.*;
 import tink.tcp.Client.ConnectOptions;
-import tink.tcp.connections.EvalConnection;
+import tink.tcp.connections.EvalDuplex;
 import tink.tcp.eval.EvalLoop;
 #if eval_tls
-import tink.tcp.connections.EvalTlsConnection;
+import tink.tcp.connections.EvalTlsDuplex;
 import tink.tcp.tls.TlsConfig;
 import tink.io.eval.EvalTlsSession;
 #end
@@ -67,7 +67,7 @@ class EvalClient {
                     session.handshake().handle(o -> switch o {
                       case Success(_):
                         finish(() -> {
-                          final duplex = new EvalTlsConnection('Connection to $to', session);
+                          final duplex = new EvalTlsDuplex('Connection to $to', session);
                           Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
                           resolve(Noise);
                         });
@@ -96,7 +96,7 @@ class EvalClient {
             }
             #end
             finish(() -> {
-              final duplex = new EvalConnection('Connection to $to', tcp);
+              final duplex = new EvalDuplex('Connection to $to', tcp);
               Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
               resolve(Noise);
             });

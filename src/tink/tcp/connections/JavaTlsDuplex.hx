@@ -7,16 +7,16 @@ import tink.io.java.JavaTlsSession;
 import tink.io.java.JavaTlsSource;
 import tink.io.java.JavaTlsSink;
 
-/** Internal JVM TLS duplex (source/sink/endpoints). Not the old public Connection API. */
+/** Internal duplex plumbing for Session.run. */
 @:allow(tink.tcp.clients)
 @:allow(tink.tcp.servers)
-class JavaTlsConnection {
-  final source:RealSource;
-  final sink:RealSink;
-  final local:Endpoint;
-  final peer:Endpoint;
+class JavaTlsDuplex {
+  private final source:RealSource;
+  private final sink:RealSink;
+  private final local:Endpoint;
+  private final peer:Endpoint;
 
-  function new(name:String, session:JavaTlsSession) {
+  private function new(name:String, session:JavaTlsSession) {
     final native = session.channel;
     local = native.getLocalAddress();
     peer = native.getRemoteAddress();

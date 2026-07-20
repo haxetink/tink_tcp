@@ -8,16 +8,16 @@ import tink.io.DuplexSink;
 import tink.io.DuplexSource;
 import tink.io.luv.WrappedStream;
 
-/** Internal Eval duplex (source/sink/endpoints). Not the old public Connection API. */
+/** Internal duplex plumbing for Session.run. */
 @:allow(tink.tcp.clients)
 @:allow(tink.tcp.servers)
-class EvalConnection {
-  final source:RealSource;
-  final sink:RealSink;
-  final local:Endpoint;
-  final peer:Endpoint;
+class EvalDuplex {
+  private final source:RealSource;
+  private final sink:RealSink;
+  private final local:Endpoint;
+  private final peer:Endpoint;
 
-  function new(name:String, native:Tcp) {
+  private function new(name:String, native:Tcp) {
     peer = switch native.getPeerName() {
       case Ok(addr): (addr : Endpoint);
       case Error(_): {host: '?', port: 0};

@@ -5,8 +5,8 @@ import cpp.Callable;
 import cpp.Star;
 import sys.net.Host;
 import tink.tcp.Server;
-import tink.tcp.connections.CppConnection;
-import tink.tcp.connections.CppTlsConnection;
+import tink.tcp.connections.CppDuplex;
+import tink.tcp.connections.CppTlsDuplex;
 import tink.tcp.tls.TlsConfig;
 import tink.io.cpp.CppTlsSession;
 import uv.*;
@@ -69,7 +69,7 @@ class CppServer implements ServerObject {
     final local:Endpoint = {host: boundHost, port: boundPort};
     final peerEp:Endpoint = {host: peer.host, port: peer.port};
     if (tls == null) {
-      final duplex = new CppConnection(name, client, local, peerEp);
+      final duplex = new CppDuplex(name, client, local, peerEp);
       Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
       return;
     }
@@ -77,7 +77,7 @@ class CppServer implements ServerObject {
       final session = new CppTlsSession(tls, client);
       session.handshake().handle(o -> switch o {
         case Success(_):
-          final duplex = new CppTlsConnection(name, session, local, peerEp);
+          final duplex = new CppTlsDuplex(name, session, local, peerEp);
           Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
         case Failure(_):
           // Handshake failed after accept; close peer and keep listening.

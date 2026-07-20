@@ -8,16 +8,16 @@ import tink.io.TlsSink;
 import tink.io.TlsSource;
 import tink.io.eval.EvalTlsSession;
 
-/** Internal Eval TLS duplex (source/sink/endpoints). Not the old public Connection API. */
+/** Internal duplex plumbing for Session.run. */
 @:allow(tink.tcp.clients)
 @:allow(tink.tcp.servers)
-class EvalTlsConnection {
-  final source:RealSource;
-  final sink:RealSink;
-  final local:Endpoint;
-  final peer:Endpoint;
+class EvalTlsDuplex {
+  private final source:RealSource;
+  private final sink:RealSink;
+  private final local:Endpoint;
+  private final peer:Endpoint;
 
-  function new(name:String, session:EvalTlsSession) {
+  private function new(name:String, session:EvalTlsSession) {
     final native = session.tcp;
     peer = switch native.getPeerName() {
       case Ok(addr): (addr : Endpoint);

@@ -16,63 +16,71 @@ abstract Endpoint from { host: String, port: Int } {
   @:to function toString():String;
 }
 
-interface Connection {
+typedef IncomingConnection = {
   final source:RealSource;
-  final sink:RealSink;
   final local:Endpoint;
   final peer:Endpoint;
 }
 
-interface Client {
-  function connect(to:Endpoint):Promise<Connection>;
+typedef Handler = IncomingConnection->IdealSource;
+
+class Client {
+  static public function connect(to:Endpoint, app:Handler, ?options:ConnectOptions):Promise<Noise>;
 }
 
-interface ServerObject {
-  final connected:Signal<Connection>;
-  var port(get, never):Int;
-  function close():Promise<Noise>;
+interface Server {
+  var endpoint(get, never):Endpoint;
+  function shutdown():Promise<Noise>;
 
-  static public function bind(target:Endpoint):Promise<Server>;
+  static public function bind(to:Endpoint, app:Handler, ?options:BindOptions):Promise<Server>;
 }
 ```
 
-Platform implementations:
+`Client.connect` resolves when the TCP/TLS dial **succeeds** and rejects when it **fails**. The handler runs only after a successful dial. The Promise does **not** wait for the handler’s outbound pipe or session lifetime.
 
-- Node.js: `tink.tcp.clients.NodeClient`, `tink.tcp.servers.NodeServer`
-- JVM: `tink.tcp.clients.JavaClient`, `tink.tcp.servers.JavaServer`
-- Eval (interp): `tink.tcp.clients.EvalClient`, `tink.tcp.servers.EvalServer`, `tink.tcp.eval.EvalLoop`
-- HashLink: `tink.tcp.clients.HlClient`, `tink.tcp.servers.HlServer`, `tink.tcp.hl.HlLoop`
-- C++ (hxcpp + linc_uv): `tink.tcp.clients.CppClient`, `tink.tcp.servers.CppServer`
+`Server.bind` takes a `Handler` up front. Each accepted peer is passed to that handler; the returned `IdealSource` is piped to the peer (`pipeTo(sink, {end: true})`).
 
-Construct clients explicitly at the call site:
+Use the static entry points — do not construct platform clients:
 
 ```haxe
-#if java
-  final client = new tink.tcp.clients.JavaClient();
-#elseif eval
-  final client = new tink.tcp.clients.EvalClient();
-#elseif hl
-  final client = new tink.tcp.clients.HlClient();
-#elseif cpp
-  final client = new tink.tcp.clients.CppClient();
-#else
-  final client = new tink.tcp.clients.NodeClient();
-#end
-
-client.connect({ host: 'example.com', port: 80 }).handle(o -> switch o {
-  case Success(cnx): /* use cnx.source and cnx.sink */;
-  case Failure(e): /* handle error */;
+Server.bind({ host: '0.0.0.0', port: 8080 }, incoming -> {
+  // read from incoming.source; return bytes to send
+  return ('hello\n' : IdealSource).append(incoming.source.idealize(_ -> Source.EMPTY));
+}).handle(o -> switch o {
+  case Success(server):
+    Client.connect(server.endpoint, incoming -> {
+      incoming.source.all().handle(_ -> {});
+      return ('ping\n' : IdealSource);
+    }).handle(o -> switch o {
+      case Success(_): /* dial ok; session I/O is via streams */
+      case Failure(e): /* dial failed */
+    });
+  case Failure(e): /* bind failed */
 });
 ```
 
-TLS is opt-in via an explicit `tls` option on `Server.bind` and `Client.connect`. It is implemented on **Node.js**, **JVM**, **HashLink**, **C++** (owned mbedtls over libuv), and **eval** (when built with an Haxe version that exposes eval mbedtls `set_bio`, `own_cert`, and ALPN). PKCS#8 private keys only (`BEGIN PRIVATE KEY`). CI `interp` TLS tests are gated behind `-D eval_tls` until the updated Haxe build is available upstream.
+Platform backends (dispatched by `Client.connect` / `Server.bind`):
+
+- Node.js
+- JVM
+- Eval (interp), with optional `BindOptions.loop`
+- HashLink, with optional `BindOptions.loop`
+- C++ (hxcpp + linc_uv)
+
+TLS is opt-in via `options.tls` on `Server.bind` and `Client.connect`. It is implemented on **Node.js**, **JVM**, **HashLink**, **C++** (owned mbedtls over libuv), and **eval** (when built with an Haxe version that exposes eval mbedtls `set_bio`, `own_cert`, and ALPN). PKCS#8 private keys only (`BEGIN PRIVATE KEY`). CI `interp` TLS tests are gated behind `-D eval_tls` until the updated Haxe build is available upstream.
 
 ```haxe
 // Server: requires cert + key (see TlsServerOptions in tink.tcp.Tls)
-Server.bind({ host: '0.0.0.0', port: 443 }, { tls: { cert: certBytes, key: keyBytes } });
+Server.bind({ host: '0.0.0.0', port: 443 }, incoming -> {
+  incoming.source.all().handle(_ -> {});
+  return ('ok' : IdealSource);
+}, { tls: { cert: certBytes, key: keyBytes } });
 
 // Client: see TlsClientOptions in tink.tcp.Tls
-client.connect({ host: 'example.com', port: 443 }, { tls: { ca: caBytes, servername: 'example.com' } });
+Client.connect({ host: 'example.com', port: 443 }, incoming -> {
+  incoming.source.all().handle(_ -> {});
+  return Source.EMPTY;
+}, { tls: { ca: caBytes, servername: 'example.com' } });
 ```
 
 Eval TLS local test run: `lix run travix interp -D eval_tls`

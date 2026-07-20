@@ -17,7 +17,7 @@ class TlsTest {
   @:describe('TLS server/client round trip using options.tls')
   public function tls() {
     final body = 'OK over TLS';
-    // Bind with TLS; Handler returns IdealSource (no connected / cnx.sink).
+    // Bind with TLS; Handler returns IdealSource.
     return Server.bind({host: '127.0.0.1', port: 0}, incoming -> {
       incoming.source.all().handle(_ -> {});
       return (body : IdealSource);

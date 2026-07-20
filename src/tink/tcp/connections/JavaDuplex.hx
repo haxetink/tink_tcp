@@ -4,16 +4,16 @@ package tink.tcp.connections;
 import tink.io.Source;
 import tink.io.Sink;
 
-/** Internal JVM duplex (source/sink/endpoints). Not the old public Connection API. */
+/** Internal duplex plumbing for Session.run. */
 @:allow(tink.tcp.clients)
 @:allow(tink.tcp.servers)
-class JavaConnection {
-  final source:RealSource;
-  final sink:RealSink;
-  final local:Endpoint;
-  final peer:Endpoint;
+class JavaDuplex {
+  private final source:RealSource;
+  private final sink:RealSink;
+  private final local:Endpoint;
+  private final peer:Endpoint;
 
-  function new(name:String, native:java.nio.channels.AsynchronousSocketChannel) {
+  private function new(name:String, native:java.nio.channels.AsynchronousSocketChannel) {
     local = native.getLocalAddress();
     peer = native.getRemoteAddress();
     source = Source.ofJavaSocketChannel('Incoming stream of $name', native);

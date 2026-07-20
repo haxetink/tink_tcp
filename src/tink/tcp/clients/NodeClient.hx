@@ -2,7 +2,7 @@ package tink.tcp.clients;
 
 #if nodejs
 import tink.tcp.Client.ConnectOptions;
-import tink.tcp.connections.NodeConnection;
+import tink.tcp.connections.NodeDuplex;
 
 using tink.CoreApi;
 
@@ -33,7 +33,7 @@ class NodeClient {
       }
       final event = tls != null ? 'secureConnect' : 'connect';
       native.once(event, () -> finish(() -> {
-        final duplex = new NodeConnection('Connection to $to', native);
+        final duplex = new NodeDuplex('Connection to $to', native);
         Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
         resolve(Noise);
       }));

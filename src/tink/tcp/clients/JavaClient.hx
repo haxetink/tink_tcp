@@ -5,8 +5,8 @@ import java.lang.Throwable;
 import java.nio.channels.CompletionHandler;
 import java.nio.channels.AsynchronousSocketChannel;
 import tink.tcp.Client.ConnectOptions;
-import tink.tcp.connections.JavaConnection;
-import tink.tcp.connections.JavaTlsConnection;
+import tink.tcp.connections.JavaDuplex;
+import tink.tcp.connections.JavaTlsDuplex;
 import tink.tcp.tls.TlsConfig;
 import tink.io.java.JavaTlsSession;
 import tink.io.java.OnMainThread;
@@ -61,7 +61,7 @@ private class ConnectedHandler implements CompletionHandler<java.lang.Void, Asyn
     OnMainThread.run(() -> {
       final tls = options?.tls;
       if (tls == null) {
-        final duplex = new JavaConnection('Connection to ${socket.getRemoteAddress()}', socket);
+        final duplex = new JavaDuplex('Connection to ${socket.getRemoteAddress()}', socket);
         start(duplex.source, duplex.sink, duplex.local, duplex.peer);
       } else {
         switch TlsConfig.fromClient(tls) {
@@ -74,7 +74,7 @@ private class ConnectedHandler implements CompletionHandler<java.lang.Void, Asyn
               final tlsSession = new JavaTlsSession(tlsCfg, socket, to.host, to.port);
               tlsSession.handshake().next(_ -> tlsSession).handle(o -> switch o {
                 case Success(s):
-                  final duplex = new JavaTlsConnection('Connection to ${socket.getRemoteAddress()}', s);
+                  final duplex = new JavaTlsDuplex('Connection to ${socket.getRemoteAddress()}', s);
                   start(duplex.source, duplex.sink, duplex.local, duplex.peer);
                 case Failure(e):
                   try socket.close()
