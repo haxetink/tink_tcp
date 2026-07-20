@@ -13,7 +13,6 @@ import uv.*;
 import uv.Native.UvConnect;
 
 using tink.CoreApi;
-using tink.io.Source;
 
 private typedef ConnectCtx = {
   tcp:Tcp,
@@ -91,9 +90,7 @@ class CppClient {
     final tls = ctx.options?.tls;
     if (tls == null) {
       final duplex = new CppConnection('Connection to ${ctx.to}', ctx.tcp);
-      ctx.app({source: duplex.source, local: duplex.local, peer: duplex.peer})
-        .pipeTo(duplex.sink, {end: true})
-        .handle(_ -> {});
+      Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, ctx.app);
       ctx.resolve(Noise);
       return;
     }
@@ -107,9 +104,7 @@ class CppClient {
           session.handshake().handle(o -> switch o {
             case Success(_):
               final duplex = new CppTlsConnection('Connection to ${ctx.to}', session, null, ctx.to);
-              ctx.app({source: duplex.source, local: duplex.local, peer: duplex.peer})
-                .pipeTo(duplex.sink, {end: true})
-                .handle(_ -> {});
+              Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, ctx.app);
               ctx.resolve(Noise);
             case Failure(e):
               closeTcp(ctx.tcp);

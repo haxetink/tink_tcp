@@ -12,7 +12,6 @@ import tink.io.java.JavaTlsSession;
 import tink.io.java.OnMainThread;
 
 using tink.CoreApi;
-using tink.io.Source;
 
 class JavaClient {
   private function new() {}
@@ -47,9 +46,7 @@ private class ConnectedHandler implements CompletionHandler<java.lang.Void, Asyn
   }
 
   function start(source, sink, local, peer) {
-    app({source: source, local: local, peer: peer})
-      .pipeTo(sink, {end: true})
-      .handle(_ -> {});
+    Session.run(source, sink, local, peer, app);
     cb.invoke(Success(Noise));
   }
 

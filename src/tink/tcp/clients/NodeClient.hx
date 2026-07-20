@@ -5,7 +5,6 @@ import tink.tcp.Client.ConnectOptions;
 import tink.tcp.connections.NodeConnection;
 
 using tink.CoreApi;
-using tink.io.Source;
 
 class NodeClient {
   private function new() {}
@@ -35,9 +34,7 @@ class NodeClient {
       final event = tls != null ? 'secureConnect' : 'connect';
       native.once(event, () -> finish(() -> {
         final duplex = new NodeConnection('Connection to $to', native);
-        app({source: duplex.source, local: duplex.local, peer: duplex.peer})
-          .pipeTo(duplex.sink, {end: true})
-          .handle(_ -> {});
+        Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
         resolve(Noise);
       }));
       native.once('error', e -> finish(() -> reject(Error.ofJsError(e))));

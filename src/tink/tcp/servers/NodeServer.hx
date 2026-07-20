@@ -6,7 +6,6 @@ import tink.tcp.Server.BindOptions;
 import tink.tcp.connections.NodeConnection;
 
 using tink.CoreApi;
-using tink.io.Source;
 
 class NodeServer implements ServerObject {
   final native:js.node.net.Server;
@@ -26,9 +25,7 @@ class NodeServer implements ServerObject {
     // the handshaked, encrypted socket is only available via 'secureConnection'.
     native.on(secure ? 'secureConnection' : 'connection', (c:js.node.net.Socket) -> {
       final duplex = new NodeConnection('Connection from ${c.remoteAddress}', c);
-      this.app({source: duplex.source, local: duplex.local, peer: duplex.peer})
-        .pipeTo(duplex.sink, {end: true})
-        .handle(_ -> {});
+      Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, this.app);
     });
   }
 

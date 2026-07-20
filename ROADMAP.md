@@ -91,25 +91,28 @@ Agents work **strictly in order** T1…T10: implementor completes a task → rev
 
 ### T2 — Shared `Session.run`
 
-**Status:** pending
+**Status:** done (reviewer: approve with notes)
 
 **Files:** new `src/tink/tcp/Session.hx` (name flexible); private duplex helpers only as needed
 
 #### Implementor checklist
 
-- [ ] `Session.run(...):` call handler, `pipeTo(sink, {end: true})`
-- [ ] No platform-specific code
-- [ ] Not part of public docs as a replacement for `Connection`
+- [x] `Session.run(...):` call handler, `pipeTo(sink, {end: true})`
+- [x] No platform-specific code
+- [x] Not part of public docs as a replacement for `Connection`
 
 #### Reviewer checklist
 
-- [ ] Pipe uses `{end: true}`
-- [ ] Suitable for fire-and-forget from client (after dial success) and server accept
-- [ ] Does not reintroduce a public `Connection` type
+- [x] Pipe uses `{end: true}`
+- [x] Suitable for fire-and-forget from client (after dial success) and server accept
+- [x] Does not reintroduce a public `Connection` type
 
 #### Agent log
 
 <!-- implementor / reviewer append below -->
+
+- **Implementor:** Added `Session.hx` with `run(source, sink, local, peer, app)` — invokes Handler and `pipeTo(sink, {end: true})`, fire-and-forget (`.handle(_ -> {})`). Platform-agnostic; not documented as a Connection replacement. Replaced all inline `pipeTo(..., {end: true})` call sites in clients/servers with `Session.run` so the shared runner is used (intentional overlap with T3–T8 wiring; those tasks still own platform semantics / TLS / Promise behavior). Verified Node typecheck of Session + Client/Server stubs; full travix suite still blocked on T4 test rewrite.
+- **Reviewer:** Approve with notes. `Session.run` matches shared-plumbing sketch (`{end: true}`, fire-and-forget via `.handle`); no platform-specific code; no public `Connection` reintroduced (doc marks Session internal). All five clients + five servers call `Session.run`; sole `pipeTo` under `src/tink/tcp` is inside `Session`. Client dial still resolves after starting run (does not await pipe); server accept remains fire-and-forget. Platform wiring is acceptable T2 overlap — T3–T8 still own TLS/Promise/accept semantics; no harmful overreach. Fix applied: private ctor on `Session`. Node typecheck of Session + Client/Server re-confirmed. Safe to commit T2.
 
 ---
 

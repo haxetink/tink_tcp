@@ -16,7 +16,6 @@ import java.nio.channels.CompletionHandler;
 import java.lang.Throwable;
 
 using tink.CoreApi;
-using tink.io.Source;
 
 @:allow(tink.tcp.servers.JavaServer)
 class JavaServer implements ServerObject {
@@ -42,9 +41,7 @@ class JavaServer implements ServerObject {
   }
 
   function start(source:RealSource, sink:RealSink, local:Endpoint, peer:Endpoint) {
-    app({source: source, local: local, peer: peer})
-      .pipeTo(sink, {end: true})
-      .handle(_ -> {});
+    Session.run(source, sink, local, peer, app);
   }
 
   static public function bind(to:Endpoint, app:Handler, ?options:BindOptions):Promise<Server> {

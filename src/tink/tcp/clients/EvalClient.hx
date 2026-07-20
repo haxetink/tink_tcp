@@ -10,7 +10,6 @@ import tink.tcp.tls.TlsConfig;
 import tink.io.eval.EvalTlsSession;
 
 using tink.CoreApi;
-using tink.io.Source;
 
 class EvalClient {
   private function new() {}
@@ -41,9 +40,7 @@ class EvalClient {
             final tls = options?.tls;
             if (tls == null) {
               final duplex = new EvalConnection('Connection to $to', tcp);
-              app({source: duplex.source, local: duplex.local, peer: duplex.peer})
-                .pipeTo(duplex.sink, {end: true})
-                .handle(_ -> {});
+              Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
               resolve(Noise);
             } else {
               switch TlsConfig.fromClient(tls) {
@@ -56,9 +53,7 @@ class EvalClient {
                     session.handshake().handle(o -> switch o {
                       case Success(_):
                         final duplex = new EvalTlsConnection('Connection to $to', session);
-                        app({source: duplex.source, local: duplex.local, peer: duplex.peer})
-                          .pipeTo(duplex.sink, {end: true})
-                          .handle(_ -> {});
+                        Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
                         resolve(Noise);
                       case Failure(e):
                         Handle.close(tcp, noop);

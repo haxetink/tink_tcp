@@ -14,7 +14,6 @@ import tink.io.Sink;
 import tink.io.hl.HlTlsSession;
 
 using tink.CoreApi;
-using tink.io.Source;
 
 class HlServer implements ServerObject {
   final native:Tcp;
@@ -46,9 +45,7 @@ class HlServer implements ServerObject {
   }
 
   function start(source:RealSource, sink:RealSink, local:Endpoint, peer:Endpoint) {
-    app({source: source, local: local, peer: peer})
-      .pipeTo(sink, {end: true})
-      .handle(_ -> {});
+    Session.run(source, sink, local, peer, app);
   }
 
   function acceptClient(client:hl.uv.Stream) {

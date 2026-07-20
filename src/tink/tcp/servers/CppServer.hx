@@ -15,7 +15,6 @@ import uv.*;
 import uv.Native.UvStream;
 
 using tink.CoreApi;
-using tink.io.Source;
 
 class CppServer implements ServerObject {
   final native:Tcp;
@@ -66,9 +65,7 @@ class CppServer implements ServerObject {
   }
 
   function start(source:RealSource, sink:RealSink, local:Endpoint, peer:Endpoint) {
-    app({source: source, local: local, peer: peer})
-      .pipeTo(sink, {end: true})
-      .handle(_ -> {});
+    Session.run(source, sink, local, peer, app);
   }
 
   function acceptClient(client:Tcp) {

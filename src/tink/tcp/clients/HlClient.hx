@@ -12,7 +12,6 @@ import tink.tcp.tls.TlsConfig;
 import tink.io.hl.HlTlsSession;
 
 using tink.CoreApi;
-using tink.io.Source;
 
 class HlClient {
   private function new() {}
@@ -36,9 +35,7 @@ class HlClient {
         final tls = options?.tls;
         if (tls == null) {
           final duplex = new HlConnection('Connection to $to', tcp, null, to);
-          app({source: duplex.source, local: duplex.local, peer: duplex.peer})
-            .pipeTo(duplex.sink, {end: true})
-            .handle(_ -> {});
+          Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
           resolve(Noise);
         } else {
           switch TlsConfig.fromClient(tls) {
@@ -51,9 +48,7 @@ class HlClient {
                 session.handshake().handle(o -> switch o {
                   case Success(_):
                     final duplex = new HlTlsConnection('Connection to $to', session, null, to);
-                    app({source: duplex.source, local: duplex.local, peer: duplex.peer})
-                      .pipeTo(duplex.sink, {end: true})
-                      .handle(_ -> {});
+                    Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
                     resolve(Noise);
                   case Failure(e):
                     tcp.close();
