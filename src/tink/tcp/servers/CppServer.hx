@@ -8,8 +8,6 @@ import tink.tcp.Server;
 import tink.tcp.connections.CppConnection;
 import tink.tcp.connections.CppTlsConnection;
 import tink.tcp.tls.TlsConfig;
-import tink.io.Source;
-import tink.io.Sink;
 import tink.io.cpp.CppTlsSession;
 import uv.*;
 import uv.Native.UvStream;
@@ -30,7 +28,7 @@ class CppServer implements ServerObject {
   function get_endpoint()
     return {host: boundHost, port: boundPort};
 
-  function new(server:Tcp, loop:Loop, app:Handler, boundHost:String, boundPort:Int, ?tls:TlsConfig) {
+  private function new(server:Tcp, loop:Loop, app:Handler, boundHost:String, boundPort:Int, ?tls:TlsConfig) {
     this.native = server;
     this.loop = loop;
     this.app = app;
@@ -64,10 +62,6 @@ class CppServer implements ServerObject {
     }
   }
 
-  function start(source:RealSource, sink:RealSink, local:Endpoint, peer:Endpoint) {
-    Session.run(source, sink, local, peer, app);
-  }
-
   function acceptClient(client:Tcp) {
     client.nodelay(true);
     final peer = client.getPeerAddress();
@@ -76,7 +70,7 @@ class CppServer implements ServerObject {
     final peerEp:Endpoint = {host: peer.host, port: peer.port};
     if (tls == null) {
       final duplex = new CppConnection(name, client, local, peerEp);
-      start(duplex.source, duplex.sink, duplex.local, duplex.peer);
+      Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
       return;
     }
     try {
@@ -84,8 +78,9 @@ class CppServer implements ServerObject {
       session.handshake().handle(o -> switch o {
         case Success(_):
           final duplex = new CppTlsConnection(name, session, local, peerEp);
-          start(duplex.source, duplex.sink, duplex.local, duplex.peer);
+          Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
         case Failure(_):
+          // Handshake failed after accept; close peer and keep listening.
           closeTcp(client);
       });
     } catch (_:haxe.Exception) {
@@ -158,8 +153,11 @@ class CppServer implements ServerObject {
 
   @:unreflective
   static function onConnection(stream:Star<UvStream>, status:Int) {
-    if (status != 0)
+    if (status != 0) {
+      // Expected when shutdown() closes the listen socket while accept is pending.
+      // TODO: report other accept errors
       return;
+    }
     final serverStream:Stream = Native.stream(stream);
     final self:CppServer = serverStream.asHandle().getData();
     if (self == null)

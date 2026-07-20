@@ -254,23 +254,26 @@ Agents work **strictly in order** T1…T10: implementor completes a task → rev
 
 ### T8 — C++ Client + Server
 
-**Status:** pending
+**Status:** done (reviewer: approve with notes)
 
 **Files:** `src/tink/tcp/clients/CppClient.hx`, `src/tink/tcp/servers/CppServer.hx`
 
 #### Implementor checklist
 
-- [ ] Same semantics; TLS as today (ALPN unchanged)
-- [ ] `travix cpp` if env ready; else note skip
+- [x] Same semantics; TLS as today (ALPN unchanged)
+- [x] `travix cpp` if env ready; else note skip
 
 #### Reviewer checklist
 
-- [ ] Connect Promise = dial only
-- [ ] No old-API leftovers; no DNS-scope creep
+- [x] Connect Promise = dial only
+- [x] No old-API leftovers; no DNS-scope creep
 
 #### Agent log
 
 <!-- implementor / reviewer append below -->
+
+- **Implementor:** Audited C++ layer against T8 (core dial/accept/`Session.run`/TLS wiring already landed in T1–T2). Hardened to match Node T3 / JVM T5 / Eval T6 / HL T7: private duplex ctors + package `@:allow` on `CppConnection`/`CppTlsConnection`; private `CppServer` ctor; dial Promise uses Node-style `done`/`finish` guard on `ConnectCtx` + cancel closes TCP; dial success → `Session.run` then resolve `Noise` (does not await pipe); dial/TLS handshake failure rejects without handler; accept → `Session.run`; TLS handshake failure closes peer and keeps listening; accept errors after `shutdown()` documented as expected (TODO for other accept errors). TLS opts still applied as before (ALPN unchanged — still not wired on cpp; sync `sys.net.Host` DNS unchanged — intentional, no DNS-scope creep). Verification: `neko …/travix/run.n cpp` fails before compiling tink_tcp sources — `linc_uv` `LoopWrapper.run()` still has the pre–Haxe-5 signature (`() -> Void`) while Haxe 5.0.0-preview.1 `NativeEventLoop` requires `run(maxBlock:Float)` (and typically `wake()`), same class of adapter fix Eval applied in-repo for T6. **Runtime/compile skip:** full cpp suite blocked on updating sibling `linc_uv` EventLoop adapter (outside this repo). Intentional deferrals for reviewer: duplex types still named `*Connection` (T10); `TlsTest`/README still old API (T9/T10); cpp async DNS / ALPN remain README TODOs (out of T8 scope); `linc_uv` LoopWrapper for Haxe 5.
+- **Reviewer:** Approve with notes. C++ Client/Server meet T8: dial success → `Session.run` then resolve `Noise` (does not await pipe); `done`/`finish` on `ConnectCtx` + cancel closes TCP without running handler on failure; bind → accept → `Session.run`; TLS opts still applied (handshake failure rejects/closes without handler; ALPN still not wired — README TODO, unchanged); duplex + `CppServer` privatized like Node/JVM/Eval/HL; no `connected` / old instance-`Client` / public `Connection` in C++ layer; no async-DNS creep. Re-confirmed stock `neko …/travix/run.n cpp` fails in sibling `linc_uv` `LoopWrapper` (`() -> Void` vs Haxe 5 `run(maxBlock:Float)`) before any tink_tcp source. **Review-only probe (reverted):** a minimal temporary `linc_uv` stub (`run(maxBlock)` + empty `wake`) unlocked full cpp compile + suite **6/6 green** — confirms tink_tcp C++ layer is sound; a proper Haxe-5 adapter (wake/deadline timer like Eval `LuvLoopWrapper` / HL LoopWrapper) still belongs in `linc_uv`, not this repo. No tink_tcp code fixes required. Non-blockers deferred: duplex still named `*Connection` (T10); `TlsTest`/README old API (T9/T10); cpp async DNS / ALPN; `linc_uv` LoopWrapper. Safe to commit T8.
 
 ---
 

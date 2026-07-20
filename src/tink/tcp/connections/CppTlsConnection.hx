@@ -7,13 +7,16 @@ import tink.io.TlsSink;
 import tink.io.TlsSource;
 import tink.io.cpp.CppTlsSession;
 
+/** Internal C++ TLS duplex (source/sink/endpoints). Not the old public Connection API. */
+@:allow(tink.tcp.clients)
+@:allow(tink.tcp.servers)
 class CppTlsConnection {
-  public final source:RealSource;
-  public final sink:RealSink;
-  public final local:Endpoint;
-  public final peer:Endpoint;
+  final source:RealSource;
+  final sink:RealSink;
+  final local:Endpoint;
+  final peer:Endpoint;
 
-  public function new(name:String, session:CppTlsSession, ?local:Endpoint, ?peer:Endpoint) {
+  function new(name:String, session:CppTlsSession, ?local:Endpoint, ?peer:Endpoint) {
     this.local = local ?? {host: '?', port: 0};
     this.peer = peer ?? {host: '?', port: 0};
     source = TlsSource.wrap('Incoming stream of $name', session);

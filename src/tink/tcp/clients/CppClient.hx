@@ -22,6 +22,7 @@ private typedef ConnectCtx = {
   resolve:Noise->Void,
   reject:Error->Void,
   connectReq:Connect,
+  done:Bool,
 };
 
 class CppClient {
@@ -66,15 +67,29 @@ class CppClient {
         resolve: resolve,
         reject: reject,
         connectReq: connectReq,
+        done: false,
       };
       connectReq.setData(ctx);
       final status = tcp.connect(connectReq, dest, Callable.fromStaticFunction(onConnect));
       if (status != 0) {
-        closeTcp(tcp);
-        reject(uvError(status, 'Failed to connect to $to'));
+        finish(ctx, () -> {
+          closeTcp(tcp);
+          reject(uvError(status, 'Failed to connect to $to'));
+        });
+        return null;
       }
-      return null;
+      return () -> if (!ctx.done) {
+        ctx.done = true;
+        closeTcp(tcp);
+      };
     });
+  }
+
+  static function finish(ctx:ConnectCtx, f:Void->Void) {
+    if (!ctx.done) {
+      ctx.done = true;
+      f();
+    }
   }
 
   @:unreflective
@@ -82,37 +97,52 @@ class CppClient {
     final connectReq:Connect = Native.connect(req);
     final ctx:ConnectCtx = connectReq.getData();
     if (status != 0) {
-      closeTcp(ctx.tcp);
-      ctx.reject(uvError(status, 'Failed to connect to ${ctx.to}'));
+      // Close inside finish so cancel (which already closed) cannot double-close.
+      finish(ctx, () -> {
+        closeTcp(ctx.tcp);
+        ctx.reject(uvError(status, 'Failed to connect to ${ctx.to}'));
+      });
       return;
     }
+    if (ctx.done)
+      return;
     ctx.tcp.nodelay(true);
     final tls = ctx.options?.tls;
     if (tls == null) {
-      final duplex = new CppConnection('Connection to ${ctx.to}', ctx.tcp);
-      Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, ctx.app);
-      ctx.resolve(Noise);
+      finish(ctx, () -> {
+        final duplex = new CppConnection('Connection to ${ctx.to}', ctx.tcp);
+        Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, ctx.app);
+        ctx.resolve(Noise);
+      });
       return;
     }
     switch TlsConfig.fromClient(tls) {
       case Failure(e):
-        closeTcp(ctx.tcp);
-        ctx.reject(e);
+        finish(ctx, () -> {
+          closeTcp(ctx.tcp);
+          ctx.reject(e);
+        });
       case Success(tlsCfg):
         try {
           final session = new CppTlsSession(tlsCfg, ctx.tcp);
           session.handshake().handle(o -> switch o {
             case Success(_):
-              final duplex = new CppTlsConnection('Connection to ${ctx.to}', session, null, ctx.to);
-              Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, ctx.app);
-              ctx.resolve(Noise);
+              finish(ctx, () -> {
+                final duplex = new CppTlsConnection('Connection to ${ctx.to}', session, null, ctx.to);
+                Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, ctx.app);
+                ctx.resolve(Noise);
+              });
             case Failure(e):
-              closeTcp(ctx.tcp);
-              ctx.reject(e);
+              finish(ctx, () -> {
+                closeTcp(ctx.tcp);
+                ctx.reject(e);
+              });
           });
         } catch (e:haxe.Exception) {
-          closeTcp(ctx.tcp);
-          ctx.reject(Error.withData(e.message, e));
+          finish(ctx, () -> {
+            closeTcp(ctx.tcp);
+            ctx.reject(Error.withData(e.message, e));
+          });
         }
     }
   }
