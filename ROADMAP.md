@@ -229,23 +229,26 @@ Agents work **strictly in order** T1…T10: implementor completes a task → rev
 
 ### T7 — HashLink Client + Server
 
-**Status:** pending
+**Status:** done (reviewer: approve with notes)
 
 **Files:** `src/tink/tcp/clients/HlClient.hx`, `src/tink/tcp/servers/HlServer.hx`
 
 #### Implementor checklist
 
-- [ ] Same semantics; honor HL loop option
-- [ ] Run HL tests if env allows; note skip in log otherwise
+- [x] Same semantics; honor HL loop option
+- [x] Run HL tests if env allows; note skip in log otherwise
 
 #### Reviewer checklist
 
-- [ ] Connect Promise = dial only; UV shutdown path still used via pipe `{end: true}`
-- [ ] No old-API leftovers
+- [x] Connect Promise = dial only; UV shutdown path still used via pipe `{end: true}`
+- [x] No old-API leftovers
 
 #### Agent log
 
 <!-- implementor / reviewer append below -->
+
+- **Implementor:** Audited HL layer against T7 (core dial/accept/`Session.run`/`BindOptions.loop` already landed in T1–T2). Hardened to match Node T3 / JVM T5 / Eval T6: private duplex ctors + package `@:allow` on `HlConnection`/`HlTlsConnection`; private `HlServer` ctor; dial Promise uses Node-style `done`/`finish` guard + cancel closes TCP; dial success → `Session.run` then resolve `Noise` (does not await pipe); dial/TLS handshake failure rejects without handler; accept → `Session.run`; TLS handshake failure closes peer and keeps listening; bind honors `BindOptions.loop` / `HlLoop.current()`; accept errors after `shutdown()` documented as expected (TODO for other accept errors). Verification: HL bytecode compile green via travix-equivalent `haxe -hl bin/hl/tests.hl -lib travix -lib tink_tcp tests.hxml` (exit 0). **Runtime skip:** `hl bin/hl/tests.hl` fails immediately with `Invalid type` — env has Haxe 5.0.0-preview.1 producing HL bytecode that the installed JIT `hl` 1.12.0 (x86_64/Rosetta) cannot load (even a one-line Hello fails the same way). Homebrew HashLink 1.15 is libs-only (no JIT `hl` binary). Arm64 `tink_tcp.hdll` rebuilds fine against Homebrew HL+libuv; x86_64 JIT path lacks a matching libuv. Intentional deferrals for reviewer: duplex types still named `*Connection` (T10); `TlsTest`/README still old API (T9/T10); non-close accept errors still TODO; full HL suite needs a Haxe/HL version pair that can actually run bytecode.
+- **Reviewer:** Approve with notes. HL Client/Server meet T7: dial success → `Session.run` then resolve `Noise` (does not await pipe); `done`/`finish` + cancel closes TCP without running handler on failure; bind honors `BindOptions.loop` / `HlLoop.current()`; accept → `Session.run`; TLS opts still applied client/server (handshake failure rejects/closes without handler); duplex + `HlServer` privatized like Node/JVM/Eval; no `connected` / old instance-`Client` / public `Connection` in HL layer. UV shutdown path intact: `Session.run` pipes with `{end: true}` → `HlUvStream.end` → `UvExtras.shutdown`. Re-verified HL bytecode compile green (`haxe -hl … tests.hxml`, exit 0). **Runtime still blocked (not a T7 code defect):** `hl` 1.12.0 cannot load Haxe 5.0.0-preview.1 bytecode (`Invalid type` on suite and on a one-line Hello); Homebrew HashLink 1.15 is libs-only (no `hl` JIT). Acceptable to approve for commit on compile + static review (same bar as noting env skips elsewhere). No code fixes required. Non-blockers deferred: duplex still named `*Connection` (T10); `TlsTest`/README old API (T9/T10); non-close accept errors still TODO. Safe to commit T7.
 
 ---
 

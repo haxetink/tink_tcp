@@ -8,13 +8,16 @@ import tink.io.DuplexSink;
 import tink.io.DuplexSource;
 import tink.io.hl.HlUvStream;
 
+/** Internal HashLink duplex (source/sink/endpoints). Not the old public Connection API. */
+@:allow(tink.tcp.clients)
+@:allow(tink.tcp.servers)
 class HlConnection {
-  public final source:RealSource;
-  public final sink:RealSink;
-  public final local:Endpoint;
-  public final peer:Endpoint;
+  final source:RealSource;
+  final sink:RealSink;
+  final local:Endpoint;
+  final peer:Endpoint;
 
-  public function new(name:String, native:Stream, ?local:Endpoint, ?peer:Endpoint) {
+  function new(name:String, native:Stream, ?local:Endpoint, ?peer:Endpoint) {
     this.local = local ?? {host: '?', port: 0};
     this.peer = peer ?? {host: '?', port: 0};
     final io = new HlUvStream(name, native);

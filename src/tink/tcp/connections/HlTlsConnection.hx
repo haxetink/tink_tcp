@@ -7,13 +7,16 @@ import tink.io.TlsSink;
 import tink.io.TlsSource;
 import tink.io.hl.HlTlsSession;
 
+/** Internal HashLink TLS duplex (source/sink/endpoints). Not the old public Connection API. */
+@:allow(tink.tcp.clients)
+@:allow(tink.tcp.servers)
 class HlTlsConnection {
-  public final source:RealSource;
-  public final sink:RealSink;
-  public final local:Endpoint;
-  public final peer:Endpoint;
+  final source:RealSource;
+  final sink:RealSink;
+  final local:Endpoint;
+  final peer:Endpoint;
 
-  public function new(name:String, session:HlTlsSession, ?local:Endpoint, ?peer:Endpoint) {
+  function new(name:String, session:HlTlsSession, ?local:Endpoint, ?peer:Endpoint) {
     this.local = local ?? {host: '?', port: 0};
     this.peer = peer ?? {host: '?', port: 0};
     source = TlsSource.wrap('Incoming stream of $name', session);
