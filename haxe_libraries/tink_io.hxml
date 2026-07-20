@@ -1,6 +1,7 @@
+# @install: lix --silent download "gh://github.com/haxetink/tink_io#7e672f401721c7e02eeb4d98ddf21eb9e07d0a40" into tink_io/0.9.0/github/7e672f401721c7e02eeb4d98ddf21eb9e07d0a40
 -lib tink_chunk
 -lib tink_streams
--cp ${SCOPE_DIR}/../tink_io/src
+-lib tink_syntaxhub
+-cp ${HAXE_LIBCACHE}/tink_io/0.9.0/github/7e672f401721c7e02eeb4d98ddf21eb9e07d0a40/src
 -D tink_io=0.9.0
-${SCOPE_DIR}/../tink_io/extraParams.hxml
---macro Sys.println("haxe_libraries/tink_io.hxml:4: [Warning] Using dev version of library tink_io")
+--macro tink.io.Boot.boot()

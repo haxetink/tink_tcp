@@ -10,6 +10,6 @@ class Session {
   private function new() {}
 
   static public function run(source:RealSource, sink:RealSink, local:Endpoint, peer:Endpoint, app:Handler):Void {
-    app({source: source, local: local, peer: peer}).pipeTo(sink, {end: true}).handle(_ -> {});
+    app({source: source, local: local, peer: peer}).pipeTo(sink, {end: true}).eager();
   }
 }
