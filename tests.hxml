@@ -3,4 +3,3 @@
 -dce full
 
 -lib tink_unittest
--lib linc_uv
