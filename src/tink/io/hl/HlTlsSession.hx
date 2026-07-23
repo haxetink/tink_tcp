@@ -4,6 +4,7 @@ package tink.io.hl;
 import haxe.io.Bytes;
 import hl.uv.Stream;
 import tink.Chunk;
+import tink.tcp.Endpoint;
 import tink.tcp.tls.TlsConfig;
 import tink.tcp.tls.TlsContext;
 using tink.CoreApi;
@@ -14,6 +15,8 @@ class HlTlsSession implements tink.io.TlsSession {
   final context:TlsContext;
   /** Keeps TlsConfig (and cert roots) alive for the session. */
   final config:TlsConfig;
+  final local:Endpoint;
+  final peer:Endpoint;
 
   var netIn = Bytes.alloc(0);
   var netInPos = 0;
@@ -27,9 +30,11 @@ class HlTlsSession implements tink.io.TlsSession {
 
   var bio:hl.NativeArray<Dynamic>;
 
-  public function new(config:TlsConfig, stream:Stream) {
+  public function new(config:TlsConfig, stream:Stream, ?local:Endpoint, ?peer:Endpoint) {
     this.stream = stream;
     this.config = config;
+    this.local = local ?? {host: '?', port: 0};
+    this.peer = peer ?? {host: '?', port: 0};
     this.context = config.createContext();
 
     bio = new hl.NativeArray(3);
@@ -38,6 +43,12 @@ class HlTlsSession implements tink.io.TlsSession {
     bio[2] = staticBioWrite;
     context.setBio(bio);
   }
+
+  public function getLocalEndpoint():Endpoint
+    return local;
+
+  public function getPeerEndpoint():Endpoint
+    return peer;
 
   static function staticBioRead(s:HlTlsSession, buf:hl.Bytes, len:Int):Int {
     return s.bioRecv(buf, len);
