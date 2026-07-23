@@ -52,8 +52,8 @@ private class ConnectedHandler implements CompletionHandler<java.lang.Void, Asyn
     this.cb = cb;
   }
 
-  function start(source, sink, local, peer) {
-    Session.run(source, sink, local, peer, app);
+  function start(source, sink, local, peer, abort:Void->Void) {
+    Session.run(source, sink, local, peer, app, abort);
     cb.invoke(Success(Noise));
   }
 
@@ -62,7 +62,7 @@ private class ConnectedHandler implements CompletionHandler<java.lang.Void, Asyn
       final tls = options?.tls;
       if (tls == null) {
         final duplex = new JavaDuplex('Connection to ${socket.getRemoteAddress()}', socket);
-        start(duplex.source, duplex.sink, duplex.local, duplex.peer);
+        start(duplex.source, duplex.sink, duplex.local, duplex.peer, () -> duplex.abort());
       } else {
         switch TlsConfig.fromClient(tls) {
           case Failure(e):
@@ -75,7 +75,7 @@ private class ConnectedHandler implements CompletionHandler<java.lang.Void, Asyn
               tlsSession.handshake().next(_ -> tlsSession).handle(o -> switch o {
                 case Success(s):
                   final duplex = new JavaTlsDuplex('Connection to ${socket.getRemoteAddress()}', s);
-                  start(duplex.source, duplex.sink, duplex.local, duplex.peer);
+                  start(duplex.source, duplex.sink, duplex.local, duplex.peer, () -> duplex.abort());
                 case Failure(e):
                   try socket.close()
                   catch (_:Dynamic) {}

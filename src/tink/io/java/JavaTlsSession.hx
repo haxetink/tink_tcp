@@ -25,6 +25,9 @@ class JavaTlsSession {
   var netIn:ByteBuffer;
   var netOut:ByteBuffer;
   var appIn:ByteBuffer;
+  var closed = false;
+  var aborted = false;
+  var pendingFails:Array<Void->Void> = [];
 
   public function new(config:TlsConfig, channel:AsynchronousSocketChannel, ?host:String, ?port:Int) {
     this.channel = channel;
@@ -39,6 +42,24 @@ class JavaTlsSession {
     appIn = ByteBuffer.allocate(appSize);
   }
 
+  /** Idempotent hard-close: skip TLS shutdown, fail waiters, close channel. */
+  public function abort():Void {
+    if (aborted)
+      return;
+    aborted = true;
+    closed = true;
+    final fails = pendingFails;
+    pendingFails = [];
+    for (fail in fails)
+      fail();
+    try
+      channel.close()
+    catch (_:Dynamic) {}
+    try
+      executor.shutdownNow()
+    catch (_:Dynamic) {}
+  }
+
   public function handshake():Promise<Noise> {
     return new Promise((resolve, reject) -> {
       final thread = new java.lang.Thread(new HandshakeRunnable(this, resolve, reject));
@@ -48,7 +69,21 @@ class JavaTlsSession {
   }
 
   public function read(cb:Callback<Outcome<Null<Chunk>, Error>>):Void {
-    executor.execute(new ExecutorRunnable(() -> readOnEngine(cb)));
+    if (closed) {
+      cb.invoke(Success(null));
+      return;
+    }
+    final once = onceRead(cb, Success(null));
+    try
+      executor.execute(new ExecutorRunnable(() -> {
+        if (closed) {
+          once.invoke(Success(null));
+          return;
+        }
+        readOnEngine(once);
+      }))
+    catch (_:Dynamic)
+      once.invoke(Success(null));
   }
 
   public function write(chunk:Chunk, cb:Callback<Outcome<Noise, Error>>):Void {
@@ -56,22 +91,98 @@ class JavaTlsSession {
       cb.invoke(Success(Noise));
       return;
     }
-    executor.execute(new ExecutorRunnable(() -> writeOnEngine(chunk, cb)));
+    if (closed) {
+      cb.invoke(Failure(abortedError()));
+      return;
+    }
+    final once = onceWrite(cb, Failure(abortedError()));
+    try
+      executor.execute(new ExecutorRunnable(() -> {
+        if (closed) {
+          once.invoke(Failure(abortedError()));
+          return;
+        }
+        writeOnEngine(chunk, once);
+      }))
+    catch (_:Dynamic)
+      once.invoke(Failure(abortedError()));
   }
 
   public function shutdown(cb:Callback<Outcome<Noise, Error>>):Void {
-    executor.execute(new ExecutorRunnable(() -> shutdownOnEngine(cb)));
+    if (closed) {
+      cb.invoke(Success(Noise));
+      return;
+    }
+    final once = onceWrite(cb, Success(Noise));
+    try
+      executor.execute(new ExecutorRunnable(() -> {
+        if (closed) {
+          once.invoke(Success(Noise));
+          return;
+        }
+        shutdownOnEngine(once);
+      }))
+    catch (_:Dynamic)
+      once.invoke(Success(Noise));
   }
 
+  function onceRead(
+    cb:Callback<Outcome<Null<Chunk>, Error>>,
+    onAbort:Outcome<Null<Chunk>, Error>
+  ):Callback<Outcome<Null<Chunk>, Error>> {
+    final done = new java.util.concurrent.atomic.AtomicBoolean(false);
+    var fail:Void->Void = null;
+    function finish(o:Outcome<Null<Chunk>, Error>) {
+      if (done.compareAndSet(false, true)) {
+        pendingFails.remove(fail);
+        cb.invoke(o);
+      }
+    }
+    fail = () -> finish(onAbort);
+    pendingFails.push(fail);
+    return finish;
+  }
+
+  function onceWrite(
+    cb:Callback<Outcome<Noise, Error>>,
+    onAbort:Outcome<Noise, Error>
+  ):Callback<Outcome<Noise, Error>> {
+    final done = new java.util.concurrent.atomic.AtomicBoolean(false);
+    var fail:Void->Void = null;
+    function finish(o:Outcome<Noise, Error>) {
+      if (done.compareAndSet(false, true)) {
+        pendingFails.remove(fail);
+        cb.invoke(o);
+      }
+    }
+    fail = () -> finish(onAbort);
+    pendingFails.push(fail);
+    return finish;
+  }
+
+  static inline function abortedError()
+    return new Error('TLS connection aborted');
+
   function readOnEngine(cb:Callback<Outcome<Null<Chunk>, Error>>) {
+    if (closed) {
+      cb.invoke(Success(null));
+      return;
+    }
     try {
       while (true) {
+        if (closed) {
+          cb.invoke(Success(null));
+          return;
+        }
         if (netIn.position() >= netIn.limit()) {
           netRead(bytes -> {
-            if (bytes == -1)
+            if (closed || bytes == -1)
               cb.invoke(Success(null));
             else
-              executor.execute(new ExecutorRunnable(() -> readOnEngine(cb)));
+              try
+                executor.execute(new ExecutorRunnable(() -> readOnEngine(cb)))
+              catch (_:Dynamic)
+                cb.invoke(Success(null));
           });
           return;
         }
@@ -82,10 +193,13 @@ class JavaTlsSession {
         switch Std.string(result.getStatus()) {
           case "BUFFER_UNDERFLOW":
             netRead(bytes -> {
-              if (bytes == -1)
+              if (closed || bytes == -1)
                 cb.invoke(Success(null));
               else
-                executor.execute(new ExecutorRunnable(() -> readOnEngine(cb)));
+                try
+                  executor.execute(new ExecutorRunnable(() -> readOnEngine(cb)))
+                catch (_:Dynamic)
+                  cb.invoke(Success(null));
             });
             return;
           case "BUFFER_OVERFLOW":
@@ -112,6 +226,10 @@ class JavaTlsSession {
   }
 
   function shutdownOnEngine(cb:Callback<Outcome<Noise, Error>>) {
+    if (closed) {
+      cb.invoke(Success(Noise));
+      return;
+    }
     try {
       if (!context.isOutboundDone())
         context.closeOutbound();
@@ -122,12 +240,25 @@ class JavaTlsSession {
   }
 
   function flushCloseNotify(cb:Callback<Outcome<Noise, Error>>) {
+    if (closed) {
+      cb.invoke(Success(Noise));
+      return;
+    }
     try {
       netOut.clear();
       final result = context.wrap(emptyApp, netOut);
       if (netOut.position() > 0) {
         netOut.flip();
-        netWrite(netOut, () -> executor.execute(new ExecutorRunnable(() -> flushCloseNotify(cb))));
+        netWrite(netOut, () -> {
+          if (closed) {
+            cb.invoke(Success(Noise));
+            return;
+          }
+          try
+            executor.execute(new ExecutorRunnable(() -> flushCloseNotify(cb)))
+          catch (_:Dynamic)
+            cb.invoke(Success(Noise));
+        });
         return;
       }
       cb.invoke(Success(Noise));
@@ -141,6 +272,10 @@ class JavaTlsSession {
   }
 
   function writeChunkOnEngine(data:Bytes, offset:Int, remaining:Int, cb:Callback<Outcome<Noise, Error>>) {
+    if (closed) {
+      cb.invoke(Failure(abortedError()));
+      return;
+    }
     try {
       if (remaining <= 0) {
         cb.invoke(Success(Noise));
@@ -161,8 +296,15 @@ class JavaTlsSession {
       }
       netOut.flip();
       netWrite(netOut, () -> {
+        if (closed) {
+          cb.invoke(Failure(abortedError()));
+          return;
+        }
         final consumed = result.bytesConsumed();
-        executor.execute(new ExecutorRunnable(() -> writeChunkOnEngine(data, offset + consumed, remaining - consumed, cb)));
+        try
+          executor.execute(new ExecutorRunnable(() -> writeChunkOnEngine(data, offset + consumed, remaining - consumed, cb)))
+        catch (_:Dynamic)
+          cb.invoke(Failure(abortedError()));
       });
     } catch (e:Dynamic) {
       cb.invoke(Failure(Error.withData(Std.string(e), e)));
