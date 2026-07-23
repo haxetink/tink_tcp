@@ -20,7 +20,8 @@ class HlServer implements ServerObject {
   final tls:Null<TlsConfig>;
   final boundPort:Int;
   final boundHost:String;
-  final errorsStub:SignalTrigger<Error> = Signal.trigger(); // stub until S5
+  final errorsTrigger:SignalTrigger<Error> = Signal.trigger();
+  var shuttingDown = false;
 
   public var endpoint(get, never):Endpoint;
   public var errors(get, never):Signal<Error>;
@@ -29,7 +30,7 @@ class HlServer implements ServerObject {
     return {host: boundHost, port: boundPort};
 
   function get_errors()
-    return errorsStub;
+    return errorsTrigger;
 
   private function new(server:Tcp, loop:Loop, app:Handler, boundHost:String, boundPort:Int, ?tls:TlsConfig) {
     this.native = server;
@@ -42,6 +43,7 @@ class HlServer implements ServerObject {
 
   public function shutdown():Promise<Noise> {
     return new Promise((resolve, reject) -> {
+      shuttingDown = true;
       native.close(() -> resolve(Noise));
       return null;
     });
@@ -61,11 +63,13 @@ class HlServer implements ServerObject {
         case Success(_):
           final duplex = new HlTlsDuplex(name, session, local);
           Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app, duplex.abort);
-        case Failure(_):
-          // Handshake failed after accept; close peer and keep listening.
+        case Failure(e):
+          // Handshake failed after accept; peer never reaches Handler.
+          errorsTrigger.trigger(e);
           client.close();
       });
-    } catch (_:haxe.Exception) {
+    } catch (e:haxe.Exception) {
+      errorsTrigger.trigger(Error.withData('TLS session setup failed: ${e.message}', e));
       client.close();
     }
   }
@@ -108,13 +112,17 @@ class HlServer implements ServerObject {
 
       final instance = new HlServer(server, l, app, hostName, port, tls);
       try {
+        // hl.uv.Stream.listen callback is Void->Void (no UV status). Accept failures
+        // surface as throws from Tcp.accept() (typically haxe.io.Eof when handle is
+        // null / accept fails). Heuristic: silence when shuttingDown (shutdown closed
+        // the listen socket mid-accept); emit all other accept throws on errors.
         server.listen(128, () -> {
           try {
             final client = server.accept();
             instance.acceptClient(client);
-          } catch (_:Dynamic) {
-            // Expected when shutdown() closes the listen socket while accept is pending.
-            // TODO: report other accept errors
+          } catch (e:Dynamic) {
+            if (!instance.shuttingDown)
+              instance.errorsTrigger.trigger(Error.withData('Accept failed: $e', e));
           }
         });
       } catch (e:Dynamic) {
