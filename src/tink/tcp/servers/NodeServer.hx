@@ -3,7 +3,7 @@ package tink.tcp.servers;
 #if nodejs
 import tink.tcp.Server;
 import tink.tcp.Server.BindOptions;
-import tink.tcp.connections.NodeDuplex;
+import tink.tcp.connections.NodeConnection;
 
 using tink.CoreApi;
 
@@ -36,7 +36,7 @@ class NodeServer implements ServerObject {
     // A TLS server hands off raw sockets on 'connection' before the handshake completes;
     // the handshaked, encrypted socket is only available via 'secureConnection'.
     native.on(secure ? 'secureConnection' : 'connection', (c:js.node.net.Socket) -> {
-      final duplex = new NodeDuplex('Connection from ${c.remoteAddress}', c);
+      final duplex = new NodeConnection('Connection from ${c.remoteAddress}', c);
       app.run(duplex);
     });
   }

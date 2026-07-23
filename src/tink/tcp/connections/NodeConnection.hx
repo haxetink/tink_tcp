@@ -7,7 +7,7 @@ import tink.io.Sink;
 /** Internal duplex plumbing for Handler.run. */
 @:allow(tink.tcp.clients.NodeClient)
 @:allow(tink.tcp.servers.NodeServer)
-class NodeDuplex implements Connection {
+class NodeConnection implements Connection {
   public final source:RealSource;
   public final sink:RealSink;
   public final local:Endpoint;
