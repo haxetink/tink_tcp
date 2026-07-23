@@ -60,7 +60,7 @@ class EvalServer implements ServerObject {
         session.handshake().handle(o -> switch o {
           case Success(_):
             final duplex = new EvalTlsDuplex(name, session);
-            Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
+            Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app, duplex.abort);
           case Failure(_):
             Handle.close(client, noop);
         });
@@ -71,7 +71,7 @@ class EvalServer implements ServerObject {
     }
     #end
     final duplex = new EvalDuplex(name, client);
-    Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
+    Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app, duplex.abort);
   }
 
   static public function bind(to:Endpoint, app:Handler, ?options:BindOptions):Promise<Server> {

@@ -139,6 +139,23 @@ class WrappedStream implements tink.io.DuplexStream {
     });
   }
 
+  /**
+    Best-effort hard-close: fail/end pending waiters, mark both sides ended so later
+    `end()` is a no-op, then close the handle without UV `shutdown()`.
+  **/
+  public function abort():Void {
+    if (closed)
+      return;
+    writeEnded = true;
+    readEnded = true;
+    finishReading();
+    while (readWaiters.length > 0)
+      readWaiters.shift().invoke(Failure(new Error('Stream "$name" aborted')));
+    readQueue = [];
+    doClose();
+    closed = true;
+  }
+
   function tryClose() {
     if (!closed && readEnded && writeEnded)
       doClose();

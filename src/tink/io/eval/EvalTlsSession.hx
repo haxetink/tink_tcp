@@ -25,6 +25,7 @@ class EvalTlsSession implements tink.io.TlsSession {
   var readActive = false;
   var writeActive = false;
   var closed = false;
+  var aborted = false;
   var readWaiters:Array<Void->Void> = [];
   var writeWaiter:Null<Void->Void>;
 
@@ -74,6 +75,25 @@ class EvalTlsSession implements tink.io.TlsSession {
     pumpShutdown(cb);
   }
 
+  /**
+    Session-level force-abort: mark closed so later `shutdown()` is a no-op,
+    wake pending waiters, hard-close TCP without TLS close_notify / UV shutdown.
+  **/
+  public function abort():Void {
+    if (aborted)
+      return;
+    aborted = true;
+    closed = true;
+    finishNetRead();
+    writeActive = false;
+    final waiter = writeWaiter;
+    writeWaiter = null;
+    if (waiter != null)
+      waiter();
+    if (!Handle.isClosing(tcp))
+      Handle.close(tcp, noop);
+  }
+
   function pumpHandshake(onDone:Void->Void, onFail:tink.core.Error->Void) {
     if (closed)
       return;
@@ -112,6 +132,10 @@ class EvalTlsSession implements tink.io.TlsSession {
   }
 
   function writeBytes(data:Bytes, offset:Int, remaining:Int, cb:Callback<Outcome<Noise, tink.core.Error>>) {
+    if (closed) {
+      cb.invoke(Failure(tlsError('TLS connection closed')));
+      return;
+    }
     if (remaining <= 0) {
       flushNetOut(() -> cb.invoke(Success(Noise)));
       return;
@@ -120,7 +144,7 @@ class EvalTlsSession implements tink.io.TlsSession {
     if (r > 0)
       flushNetOut(() -> writeBytes(data, offset + r, remaining - r, cb));
     else if (r == MbedtlsError.WANT_READ)
-      flushNetOut(() -> ensureNetRead(() -> writeBytes(data, offset, remaining, cb)));
+      flushNetOut(() -> ensureNetRead(() -> if (closed) cb.invoke(Failure(tlsError('TLS connection closed'))) else writeBytes(data, offset, remaining, cb)));
     else if (r == MbedtlsError.WANT_WRITE)
       flushNetOut(() -> writeBytes(data, offset, remaining, cb));
     else
@@ -224,6 +248,11 @@ class EvalTlsSession implements tink.io.TlsSession {
   }
 
   function flushNetOut(done:Void->Void) {
+    if (aborted) {
+      netOut = new haxe.io.BytesBuffer();
+      done();
+      return;
+    }
     if (netOut.length == 0) {
       done();
       return;
@@ -278,5 +307,7 @@ class EvalTlsSession implements tink.io.TlsSession {
   function tlsError(message:String, ?code:Int) {
     return tink.core.Error.withData(message, code);
   }
+
+  static function noop() {}
 }
 #end

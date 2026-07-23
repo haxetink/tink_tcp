@@ -68,7 +68,7 @@ class EvalClient {
                       case Success(_):
                         finish(() -> {
                           final duplex = new EvalTlsDuplex('Connection to $to', session);
-                          Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
+                          Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app, duplex.abort);
                           resolve(Noise);
                         });
                       case Failure(e):
@@ -97,7 +97,7 @@ class EvalClient {
             #end
             finish(() -> {
               final duplex = new EvalDuplex('Connection to $to', tcp);
-              Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
+              Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app, duplex.abort);
               resolve(Noise);
             });
         }
