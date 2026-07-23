@@ -8,13 +8,14 @@ import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import haxe.io.Bytes;
 import tink.Chunk;
+import tink.tcp.Endpoint;
 import tink.tcp.tls.TlsConfig;
 import tink.tcp.tls.TlsContext;
 
 using tink.CoreApi;
 
 @:allow(tink.io.java)
-class JavaTlsSession {
+class JavaTlsSession implements tink.io.TlsSession {
   static final emptyApp = ByteBuffer.allocate(0);
 
   public final channel:AsynchronousSocketChannel;
@@ -60,6 +61,12 @@ class JavaTlsSession {
     catch (_:Dynamic) {}
   }
 
+  public function getLocalEndpoint():Endpoint
+    return channel.getLocalAddress();
+
+  public function getPeerEndpoint():Endpoint
+    return channel.getRemoteAddress();
+
   public function handshake():Promise<Noise> {
     return new Promise((resolve, reject) -> {
       final thread = new java.lang.Thread(new HandshakeRunnable(this, resolve, reject));
@@ -70,7 +77,7 @@ class JavaTlsSession {
 
   public function read(cb:Callback<Outcome<Null<Chunk>, Error>>):Void {
     if (closed) {
-      cb.invoke(Success(null));
+      OnMainThread.run(() -> cb.invoke(Success(null)));
       return;
     }
     final once = onceRead(cb, Success(null));
@@ -88,11 +95,11 @@ class JavaTlsSession {
 
   public function write(chunk:Chunk, cb:Callback<Outcome<Noise, Error>>):Void {
     if (chunk.length == 0) {
-      cb.invoke(Success(Noise));
+      OnMainThread.run(() -> cb.invoke(Success(Noise)));
       return;
     }
     if (closed) {
-      cb.invoke(Failure(abortedError()));
+      OnMainThread.run(() -> cb.invoke(Failure(abortedError())));
       return;
     }
     final once = onceWrite(cb, Failure(abortedError()));
@@ -110,7 +117,7 @@ class JavaTlsSession {
 
   public function shutdown(cb:Callback<Outcome<Noise, Error>>):Void {
     if (closed) {
-      cb.invoke(Success(Noise));
+      OnMainThread.run(() -> cb.invoke(Success(Noise)));
       return;
     }
     final once = onceWrite(cb, Success(Noise));
@@ -135,7 +142,7 @@ class JavaTlsSession {
     function finish(o:Outcome<Null<Chunk>, Error>) {
       if (done.compareAndSet(false, true)) {
         pendingFails.remove(fail);
-        cb.invoke(o);
+        OnMainThread.run(() -> cb.invoke(o));
       }
     }
     fail = () -> finish(onAbort);
@@ -152,7 +159,7 @@ class JavaTlsSession {
     function finish(o:Outcome<Noise, Error>) {
       if (done.compareAndSet(false, true)) {
         pendingFails.remove(fail);
-        cb.invoke(o);
+        OnMainThread.run(() -> cb.invoke(o));
       }
     }
     fail = () -> finish(onAbort);
