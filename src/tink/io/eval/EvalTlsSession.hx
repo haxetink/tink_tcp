@@ -5,6 +5,7 @@ import eval.luv.*;
 import haxe.io.Bytes;
 import mbedtls.Error as MbedtlsError;
 import tink.Chunk;
+import tink.tcp.Endpoint;
 import tink.tcp.tls.TlsConfig;
 import tink.tcp.tls.TlsContext;
 using tink.CoreApi;
@@ -92,6 +93,20 @@ class EvalTlsSession implements tink.io.TlsSession {
       waiter();
     if (!Handle.isClosing(tcp))
       Handle.close(tcp, noop);
+  }
+
+  public function getLocalEndpoint():Endpoint {
+    return switch tcp.getSockName() {
+      case Ok(addr): (addr : Endpoint);
+      case Error(_): {host: '?', port: 0};
+    };
+  }
+
+  public function getPeerEndpoint():Endpoint {
+    return switch tcp.getPeerName() {
+      case Ok(addr): (addr : Endpoint);
+      case Error(_): {host: '?', port: 0};
+    };
   }
 
   function pumpHandshake(onDone:Void->Void, onFail:tink.core.Error->Void) {
