@@ -6,7 +6,7 @@ import tink.tcp.Server;
 import tink.tcp.connections.EvalDuplex;
 import tink.tcp.eval.EvalLoop;
 #if eval_tls
-import tink.tcp.connections.EvalTlsDuplex;
+import tink.tcp.connections.TlsConnection;
 import tink.tcp.tls.TlsConfig;
 import tink.io.eval.EvalTlsSession;
 #end
@@ -66,7 +66,7 @@ class EvalServer implements ServerObject {
         final session = new EvalTlsSession(tls, client);
         session.handshake().handle(o -> switch o {
           case Success(_):
-            final duplex = new EvalTlsDuplex(name, session);
+            final duplex = new TlsConnection(name, session);
             app.run(duplex);
           case Failure(e):
             errorsTrigger.trigger(e);
