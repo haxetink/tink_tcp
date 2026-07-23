@@ -22,7 +22,7 @@ class CppServer implements ServerObject {
   final boundPort:Int;
   final boundHost:String;
   var closeResolve:Null<Noise->Void>;
-  final errorsStub:SignalTrigger<Error> = Signal.trigger(); // stub until S4
+  final errorsTrigger:SignalTrigger<Error> = Signal.trigger();
 
   public var endpoint(get, never):Endpoint;
   public var errors(get, never):Signal<Error>;
@@ -31,7 +31,7 @@ class CppServer implements ServerObject {
     return {host: boundHost, port: boundPort};
 
   function get_errors()
-    return errorsStub;
+    return errorsTrigger;
 
   private function new(server:Tcp, loop:Loop, app:Handler, boundHost:String, boundPort:Int, ?tls:TlsConfig) {
     this.native = server;
@@ -84,11 +84,13 @@ class CppServer implements ServerObject {
         case Success(_):
           final duplex = new CppTlsDuplex(name, session, local, peerEp);
           Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app, duplex.abort);
-        case Failure(_):
+        case Failure(e):
           // Handshake failed after accept; close peer and keep listening.
+          errorsTrigger.trigger(e);
           closeTcp(client);
       });
-    } catch (_:haxe.Exception) {
+    } catch (ex:haxe.Exception) {
+      errorsTrigger.trigger(Error.withData('Server TLS handshake setup failed: ${ex.message}', ex));
       closeTcp(client);
     }
   }
@@ -158,20 +160,29 @@ class CppServer implements ServerObject {
 
   @:unreflective
   static function onConnection(stream:Star<UvStream>, status:Int) {
-    if (status != 0) {
-      // Expected when shutdown() closes the listen socket while accept is pending.
-      // TODO: report other accept errors
-      return;
-    }
     final serverStream:Stream = Native.stream(stream);
     final self:CppServer = serverStream.asHandle().getData();
     if (self == null)
       return;
 
-    final client = new Tcp();
-    if (client.init(self.loop) != 0)
+    if (status != 0) {
+      // Shutdown heuristic: closing the listen handle cancels pending accept with UV_ECANCELED;
+      // also silence whenever shutdown() has started (closeResolve set) or the handle is already closing.
+      if (self.closeResolve != null || serverStream.asHandle().isClosing() || status == Uv.ECANCELED)
+        return;
+      self.errorsTrigger.trigger(uvError(status, 'Accept failed'));
       return;
-    if (serverStream.accept(client.asStream()) != 0) {
+    }
+
+    final client = new Tcp();
+    final initStatus = client.init(self.loop);
+    if (initStatus != 0) {
+      self.errorsTrigger.trigger(uvError(initStatus, 'Accept failed: client init'));
+      return;
+    }
+    final acceptStatus = serverStream.accept(client.asStream());
+    if (acceptStatus != 0) {
+      self.errorsTrigger.trigger(uvError(acceptStatus, 'Accept failed'));
       closeTcp(client);
       return;
     }
