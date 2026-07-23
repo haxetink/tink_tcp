@@ -210,6 +210,21 @@ class CppUvStream implements tink.io.DuplexStream {
     doClose();
   }
 
+  /**
+    Best-effort hard close: end/fail pending read waiters, mark read/write ended so a later
+    `end()` (UV shutdown) is a no-op, then close the handle without graceful shutdown.
+  **/
+  public function abort():Void {
+    if (writeEnded && readEnded && closed)
+      return;
+    writeEnded = true;
+    readEnded = true;
+    finishReading();
+    while (readWaiters.length > 0)
+      readWaiters.shift().invoke(Success(null));
+    doClose();
+  }
+
   static function uvError(code:Int, message:String):Error {
     return Error.withData('$message: ${Std.string(Uv.err_name(code))}', code);
   }

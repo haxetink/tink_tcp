@@ -16,13 +16,18 @@ class CppDuplex {
   private final sink:RealSink;
   private final local:Endpoint;
   private final peer:Endpoint;
+  private final stream:CppUvStream;
 
   private function new(name:String, tcp:Tcp, ?local:Endpoint, ?peer:Endpoint) {
     this.local = local ?? endpointFrom(tcp.getSockAddress());
     this.peer = peer ?? endpointFrom(tcp.getPeerAddress());
-    final io = new CppUvStream(name, tcp);
-    source = DuplexSource.wrap('Incoming stream of $name', io);
-    sink = DuplexSink.wrap('Outcoming stream of $name', io);
+    this.stream = new CppUvStream(name, tcp);
+    source = DuplexSource.wrap('Incoming stream of $name', stream);
+    sink = DuplexSink.wrap('Outcoming stream of $name', stream);
+  }
+
+  private function abort():Void {
+    stream.abort();
   }
 
   static function endpointFrom(addr:{host:String, port:Int}):Endpoint {

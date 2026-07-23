@@ -43,6 +43,7 @@ class CppTlsSession implements tink.io.TlsSession {
   var readActive = false;
   var writeActive = false;
   var closed = false;
+  var aborted = false;
   var readWaiters:Array<Void->Void> = [];
   var writeWaiter:Null<Void->Void>;
 
@@ -119,6 +120,35 @@ class CppTlsSession implements tink.io.TlsSession {
     pumpShutdown(cb);
   }
 
+  /**
+    Session-level force-abort: mark closed so later `shutdown()` is a no-op, wake pending
+    waiters, and hard-close the underlying TCP handle (no TLS close_notify / UV shutdown).
+  **/
+  public function abort():Void {
+    if (aborted)
+      return;
+    aborted = true;
+    closed = true;
+    finishNetRead();
+    writeActive = false;
+    final waiter = writeWaiter;
+    writeWaiter = null;
+    if (waiter != null)
+      waiter();
+    hardCloseTcp();
+  }
+
+  function hardCloseTcp() {
+    final h = stream.asHandle();
+    if (h.isClosing())
+      return;
+    finishNetRead();
+    h.close(Callable.fromStaticFunction(onTlsHardClose));
+  }
+
+  @:unreflective
+  static function onTlsHardClose(_:Star<UvHandle>) {}
+
   function pumpHandshake(onDone:Void->Void, onFail:Error->Void) {
     if (closed)
       return;
@@ -157,6 +187,12 @@ class CppTlsSession implements tink.io.TlsSession {
   }
 
   function writeBytes(data:Bytes, offset:Int, remaining:Int, cb:Callback<Outcome<Noise, Error>>) {
+    // Guard re-entry after abort: woken readWaiters / writeWaiter must not loop
+    // writeBytes → flushNetOut(aborted→done) → ensureNetRead → writeBytes.
+    if (closed) {
+      cb.invoke(Failure(tlsError('TLS connection closed')));
+      return;
+    }
     if (remaining <= 0) {
       flushNetOut(() -> cb.invoke(Success(Noise)));
       return;
@@ -273,6 +309,10 @@ class CppTlsSession implements tink.io.TlsSession {
   }
 
   function flushNetOut(done:Void->Void) {
+    if (aborted) {
+      done();
+      return;
+    }
     if (netOut.length == 0) {
       done();
       return;
@@ -286,6 +326,12 @@ class CppTlsSession implements tink.io.TlsSession {
   }
 
   function writeNetOut(done:Void->Void) {
+    if (aborted) {
+      writeActive = false;
+      writeWaiter = null;
+      done();
+      return;
+    }
     if (netOut.length == 0) {
       writeActive = false;
       final waiter = writeWaiter;
