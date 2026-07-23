@@ -13,13 +13,13 @@ jobs:
       fail-fast: false
       matrix:
         haxe-version:
-          - stable
+          # - stable
           - nightly
         target:
           - node
           - jvm
           - interp
-          # - cpp -lib linc_uv
+          - cpp -lib linc_uv
 
     steps:
       - name: Check out repo
