@@ -1,0 +1,3 @@
+# @install: lix --silent download "gh://github.com/kevinresol/haxe12998#12995a9733248cbedfc3d3b807ea76734c4ac220" into haxe12998/1.0.0/github/12995a9733248cbedfc3d3b807ea76734c4ac220
+-cp ${HAXE_LIBCACHE}/haxe12998/1.0.0/github/12995a9733248cbedfc3d3b807ea76734c4ac220/src
+-D haxe12998=1.0.0

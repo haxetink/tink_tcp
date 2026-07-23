@@ -41,10 +41,10 @@ class TestConnect {
     return Client.connect({host: '127.0.0.1', port: 1}, _ -> {
       handlerRan = true;
       return Source.EMPTY;
-    }).asFuture().flatMap(o -> {
+    }).flatMap(o -> {
       asserts.assert(!o.isSuccess());
       asserts.assert(!handlerRan);
-      return asserts.done();
+      asserts.done();
     });
   }
 }
