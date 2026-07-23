@@ -12,12 +12,14 @@ import tink.io.eval.EvalTlsSession;
 @:allow(tink.tcp.clients)
 @:allow(tink.tcp.servers)
 class EvalTlsDuplex {
+  private final session:EvalTlsSession;
   private final source:RealSource;
   private final sink:RealSink;
   private final local:Endpoint;
   private final peer:Endpoint;
 
   private function new(name:String, session:EvalTlsSession) {
+    this.session = session;
     final native = session.tcp;
     peer = switch native.getPeerName() {
       case Ok(addr): (addr : Endpoint);
@@ -29,6 +31,11 @@ class EvalTlsDuplex {
     };
     source = TlsSource.wrap('Incoming stream of $name', session);
     sink = TlsSink.wrap('Outcoming stream of $name', session);
+  }
+
+  /** Best-effort hard-close via session-level force-abort (skips TLS close_notify / UV shutdown). */
+  private function abort():Void {
+    session.abort();
   }
 }
 #end

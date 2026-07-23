@@ -12,6 +12,7 @@ import tink.io.luv.WrappedStream;
 @:allow(tink.tcp.clients)
 @:allow(tink.tcp.servers)
 class EvalDuplex {
+  private final stream:WrappedStream;
   private final source:RealSource;
   private final sink:RealSink;
   private final local:Endpoint;
@@ -26,9 +27,14 @@ class EvalDuplex {
       case Ok(addr): (addr : Endpoint);
       case Error(_): {host: '?', port: 0};
     };
-    final io = new WrappedStream(name, native);
-    source = DuplexSource.wrap('Incoming stream of $name', io);
-    sink = DuplexSink.wrap('Outcoming stream of $name', io);
+    stream = new WrappedStream(name, native);
+    source = DuplexSource.wrap('Incoming stream of $name', stream);
+    sink = DuplexSink.wrap('Outcoming stream of $name', stream);
+  }
+
+  /** Best-effort hard-close via WrappedStream.abort (skips UV shutdown). */
+  private function abort():Void {
+    stream.abort();
   }
 }
 #end
