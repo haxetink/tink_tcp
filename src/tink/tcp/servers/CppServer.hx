@@ -5,7 +5,7 @@ import cpp.Callable;
 import cpp.Star;
 import sys.net.Host;
 import tink.tcp.Server;
-import tink.tcp.connections.CppDuplex;
+import tink.tcp.connections.CppConnection;
 import tink.tcp.connections.TlsConnection;
 import tink.tcp.tls.TlsConfig;
 import tink.io.cpp.CppTlsSession;
@@ -74,7 +74,7 @@ class CppServer implements ServerObject {
     final local:Endpoint = {host: boundHost, port: boundPort};
     final peerEp:Endpoint = {host: peer.host, port: peer.port};
     if (tls == null) {
-      final duplex = new CppDuplex(name, client, local, peerEp);
+      final duplex = new CppConnection(name, client, local, peerEp);
       app.run(duplex);
       return;
     }

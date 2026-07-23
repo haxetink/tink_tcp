@@ -5,7 +5,7 @@ import cpp.Callable;
 import cpp.Star;
 import sys.net.Host;
 import tink.tcp.Client.ConnectOptions;
-import tink.tcp.connections.CppDuplex;
+import tink.tcp.connections.CppConnection;
 import tink.tcp.connections.TlsConnection;
 import tink.tcp.tls.TlsConfig;
 import tink.io.cpp.CppTlsSession;
@@ -110,7 +110,7 @@ class CppClient {
     final tls = ctx.options?.tls;
     if (tls == null) {
       finish(ctx, () -> {
-        final duplex = new CppDuplex('Connection to ${ctx.to}', ctx.tcp);
+        final duplex = new CppConnection('Connection to ${ctx.to}', ctx.tcp);
         ctx.app.run(duplex);
         ctx.resolve(Noise);
       });

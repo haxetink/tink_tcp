@@ -11,7 +11,7 @@ import tink.io.cpp.CppUvStream;
 /** Internal duplex plumbing for Handler.run. */
 @:allow(tink.tcp.clients)
 @:allow(tink.tcp.servers)
-class CppDuplex implements Connection {
+class CppConnection implements Connection {
   private final stream:CppUvStream;
   public final source:RealSource;
   public final sink:RealSink;
