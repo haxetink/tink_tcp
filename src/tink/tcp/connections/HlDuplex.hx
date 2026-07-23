@@ -16,13 +16,23 @@ class HlDuplex {
   private final sink:RealSink;
   private final local:Endpoint;
   private final peer:Endpoint;
+  private final io:HlUvStream;
+  private var aborted = false;
 
   private function new(name:String, native:Stream, ?local:Endpoint, ?peer:Endpoint) {
     this.local = local ?? {host: '?', port: 0};
     this.peer = peer ?? {host: '?', port: 0};
-    final io = new HlUvStream(name, native);
+    io = new HlUvStream(name, native);
     source = DuplexSource.wrap('Incoming stream of $name', io);
     sink = DuplexSink.wrap('Outcoming stream of $name', io);
+  }
+
+  /** Best-effort hard-close; skips UV shutdown / stream `end()`. */
+  private function abort():Void {
+    if (aborted)
+      return;
+    aborted = true;
+    io.abort();
   }
 }
 #end

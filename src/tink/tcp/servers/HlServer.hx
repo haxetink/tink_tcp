@@ -47,7 +47,7 @@ class HlServer implements ServerObject {
     final local:Endpoint = {host: boundHost, port: boundPort};
     if (tls == null) {
       final duplex = new HlDuplex(name, client, local);
-      Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
+      Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app, duplex.abort);
       return;
     }
     try {
@@ -55,7 +55,7 @@ class HlServer implements ServerObject {
       session.handshake().handle(o -> switch o {
         case Success(_):
           final duplex = new HlTlsDuplex(name, session, local);
-          Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app);
+          Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app, duplex.abort);
         case Failure(_):
           // Handshake failed after accept; close peer and keep listening.
           client.close();
