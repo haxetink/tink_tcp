@@ -34,7 +34,7 @@ class NodeClient {
       final event = tls != null ? 'secureConnect' : 'connect';
       native.once(event, () -> finish(() -> {
         final duplex = new NodeDuplex('Connection to $to', native);
-        Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app, duplex.abort);
+        app.run(duplex);
         resolve(Noise);
       }));
       native.once('error', e -> finish(() -> reject(Error.ofJsError(e))));

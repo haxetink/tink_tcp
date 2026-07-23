@@ -4,14 +4,14 @@ package tink.tcp.connections;
 import tink.io.Source;
 import tink.io.Sink;
 
-/** Internal duplex plumbing for Session.run. */
+/** Internal duplex plumbing for Handler.run. */
 @:allow(tink.tcp.clients.NodeClient)
 @:allow(tink.tcp.servers.NodeServer)
-class NodeDuplex {
-  private final source:RealSource;
-  private final sink:RealSink;
-  private final local:Endpoint;
-  private final peer:Endpoint;
+class NodeDuplex implements Connection {
+  public final source:RealSource;
+  public final sink:RealSink;
+  public final local:Endpoint;
+  public final peer:Endpoint;
   private final native:js.node.net.Socket;
   private var aborted = false;
 
@@ -24,7 +24,7 @@ class NodeDuplex {
   }
 
   /** Best-effort hard-close; same spirit as dial-cancel (`destroy`, not `resetAndDestroy`). */
-  private function abort():Void {
+  public function abort():Void {
     if (aborted)
       return;
     aborted = true;
