@@ -9,6 +9,7 @@ class RunTests {
       new EchoTest(),
       new TestConnect(),
       new TestAbort(),
+      new TestSinkEndFolding(),
       #if (nodejs || java || hl || cpp || (eval && eval_tls))
       new TlsTest(),
       #end

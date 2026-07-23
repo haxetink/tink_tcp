@@ -5,6 +5,7 @@ import tink.Chunk;
 import tink.io.Sink;
 
 using tink.io.PipeResult;
+using tink.io.Source;
 using tink.CoreApi;
 
 class TlsSink extends SinkBase<Error, Noise> {
@@ -15,18 +16,37 @@ class TlsSink extends SinkBase<Error, Noise> {
   }
 
   override public function consume<EIn>(source:Stream<Chunk, EIn>, options:PipeOptions):Future<PipeResult<EIn, Error, Noise>> {
-    final ret = source.forEach(c -> Future.irreversible((cb:Callback<Handled<Error>>) -> {
+    final body = source.forEach(c -> Future.irreversible((cb:Callback<Handled<Error>>) -> {
       session.write(c, o -> cb.invoke(switch o {
         case Success(_): Resume;
         case Failure(e): Clog(e);
       }));
     }));
 
-    if (options.end)
-      ret.handle(_ -> session.shutdown(_ -> {}));
+    if (!options.end)
+      return body.map(c -> c.toResult(Noise));
 
-    return ret.map(c -> c.toResult(Noise));
+    return body.flatMap(function(c):Future<PipeResult<EIn, Error, Noise>> {
+      final result:PipeResult<EIn, Error, Noise> = c.toResult(Noise);
+      return switch result {
+        case AllWritten | SinkEnded(_, _):
+          Future.irreversible(function(cb:PipeResult<EIn, Error, Noise>->Void)
+            session.shutdown(o -> cb(switch o {
+              case Success(_): result;
+              case Failure(e): SinkFailed(e, endRest(result));
+            }))
+          );
+        case SinkFailed(_, _) | SourceFailed(_):
+          Future.sync(result);
+      }
+    });
   }
+
+  static function endRest<EIn>(result:PipeResult<EIn, Error, Noise>):Source<EIn>
+    return switch result {
+      case SinkEnded(_, rest): rest;
+      case _: cast Source.EMPTY;
+    }
 
   static public inline function wrap(name:String, session:TlsSession)
     return new TlsSink(session);
