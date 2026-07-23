@@ -7,14 +7,14 @@ import tink.io.TlsSink;
 import tink.io.TlsSource;
 import tink.io.hl.HlTlsSession;
 
-/** Internal duplex plumbing for Session.run. */
+/** Internal duplex plumbing for Handler.run. */
 @:allow(tink.tcp.clients)
 @:allow(tink.tcp.servers)
-class HlTlsDuplex {
-  private final source:RealSource;
-  private final sink:RealSink;
-  private final local:Endpoint;
-  private final peer:Endpoint;
+class HlTlsDuplex implements Connection {
+  public final source:RealSource;
+  public final sink:RealSink;
+  public final local:Endpoint;
+  public final peer:Endpoint;
   private final session:HlTlsSession;
   private var aborted = false;
 
@@ -27,7 +27,7 @@ class HlTlsDuplex {
   }
 
   /** Best-effort hard-close via session force-abort (no TLS close_notify / UV shutdown). */
-  private function abort():Void {
+  public function abort():Void {
     if (aborted)
       return;
     aborted = true;

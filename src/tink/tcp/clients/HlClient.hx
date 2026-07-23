@@ -51,7 +51,7 @@ class HlClient {
         if (tls == null) {
           finish(() -> {
             final duplex = new HlDuplex('Connection to $to', tcp, null, to);
-            Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app, duplex.abort);
+            app.run(duplex);
             resolve(Noise);
           });
         } else {
@@ -68,7 +68,7 @@ class HlClient {
                   case Success(_):
                     finish(() -> {
                       final duplex = new HlTlsDuplex('Connection to $to', session, null, to);
-                      Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app, duplex.abort);
+                      app.run(duplex);
                       resolve(Noise);
                     });
                   case Failure(e):
