@@ -21,7 +21,8 @@ class EvalServer implements ServerObject {
   #if eval_tls
   final tls:Null<TlsConfig>;
   #end
-  final errorsStub:SignalTrigger<Error> = Signal.trigger(); // stub until S2
+  final errorsTrigger:SignalTrigger<Error> = Signal.trigger();
+  var shuttingDown = false;
 
   public var endpoint(get, never):Endpoint;
   public var errors(get, never):Signal<Error>;
@@ -34,7 +35,7 @@ class EvalServer implements ServerObject {
   }
 
   function get_errors()
-    return errorsStub;
+    return errorsTrigger;
 
   private function new(server:Tcp, loop:Loop, app:Handler #if eval_tls , ?tls:TlsConfig #end) {
     this.native = server;
@@ -47,6 +48,7 @@ class EvalServer implements ServerObject {
 
   public function shutdown():Promise<Noise> {
     return new Promise((resolve, reject) -> {
+      shuttingDown = true;
       Handle.close(native, () -> resolve(Noise));
       return null;
     });
@@ -66,10 +68,12 @@ class EvalServer implements ServerObject {
           case Success(_):
             final duplex = new EvalTlsDuplex(name, session);
             Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app, duplex.abort);
-          case Failure(_):
+          case Failure(e):
+            errorsTrigger.trigger(e);
             Handle.close(client, noop);
         });
-      } catch (_:haxe.Exception) {
+      } catch (ex:haxe.Exception) {
+        errorsTrigger.trigger(Error.withData(ex.message, ex));
         Handle.close(client, noop);
       }
       return;
@@ -77,6 +81,17 @@ class EvalServer implements ServerObject {
     #end
     final duplex = new EvalDuplex(name, client);
     Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app, duplex.abort);
+  }
+
+  /**
+    Listen-callback `Error` noise from closing the listen socket:
+    - `UV_ECANCELED` — libuv cancels the pending listen when the handle is closed
+    - `UV_EBADF` — close already tore down the fd before the callback ran
+    Also silence any listen/`Tcp.init`/`accept` fault once `shutdown()` has set
+    `shuttingDown` (covers races with other UV codes during teardown).
+  **/
+  static function isShutdownListenNoise(e:UVError):Bool {
+    return e == UV_ECANCELED || e == UV_EBADF;
   }
 
   static public function bind(to:Endpoint, app:Handler, ?options:BindOptions):Promise<Server> {
@@ -121,17 +136,22 @@ class EvalServer implements ServerObject {
       final instance = new EvalServer(server, l, app #if eval_tls , tls #end);
       server.listen(function(result) {
         switch result {
-          case Error(_):
-            // Expected when shutdown() closes the listen socket while accept is pending.
-            // TODO: report other accept errors
+          case Error(e):
+            if (!instance.shuttingDown && !isShutdownListenNoise(e))
+              instance.errorsTrigger.trigger(luvError(e, 'Accept failed'));
           case Ok(_):
             final client = switch Tcp.init(l) {
-              case Error(_): return;
+              case Error(e):
+                if (!instance.shuttingDown)
+                  instance.errorsTrigger.trigger(luvError(e, 'Failed to init accepted socket'));
+                return;
               case Ok(v): v;
             };
             switch server.accept(client) {
-              case Error(_):
+              case Error(e):
                 Handle.close(client, noop);
+                if (!instance.shuttingDown)
+                  instance.errorsTrigger.trigger(luvError(e, 'Accept failed'));
               case Ok(_):
                 instance.acceptClient(client);
             }
