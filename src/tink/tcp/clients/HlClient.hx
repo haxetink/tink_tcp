@@ -6,7 +6,7 @@ import hl.uv.Tcp;
 import sys.net.Host;
 import tink.tcp.Client.ConnectOptions;
 import tink.tcp.connections.HlDuplex;
-import tink.tcp.connections.HlTlsDuplex;
+import tink.tcp.connections.TlsConnection;
 import tink.tcp.hl.HlLoop;
 import tink.tcp.tls.TlsConfig;
 import tink.io.hl.HlTlsSession;
@@ -63,11 +63,11 @@ class HlClient {
               });
             case Success(tlsCfg):
               try {
-                final session = new HlTlsSession(tlsCfg, tcp);
+                final session = new HlTlsSession(tlsCfg, tcp, null, to);
                 session.handshake().handle(o -> switch o {
                   case Success(_):
                     finish(() -> {
-                      final duplex = new HlTlsDuplex('Connection to $to', session, null, to);
+                      final duplex = new TlsConnection('Connection to $to', session);
                       app.run(duplex);
                       resolve(Noise);
                     });
