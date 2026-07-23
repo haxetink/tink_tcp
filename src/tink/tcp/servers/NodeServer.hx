@@ -10,7 +10,7 @@ using tink.CoreApi;
 class NodeServer implements ServerObject {
   final native:js.node.net.Server;
   final app:Handler;
-  final errorsStub:SignalTrigger<Error> = Signal.trigger(); // stub until S3
+  final errorsTrigger:SignalTrigger<Error>;
 
   public var endpoint(get, never):Endpoint;
   public var errors(get, never):Signal<Error>;
@@ -21,11 +21,18 @@ class NodeServer implements ServerObject {
   }
 
   function get_errors()
-    return errorsStub;
+    return errorsTrigger;
 
   private function new(server, app:Handler, secure = false) {
     this.native = server;
     this.app = app;
+    this.errorsTrigger = Signal.trigger();
+    // Post-bind only: this ctor runs after 'listening', so bind-time 'error'
+    // still rejects the bind Promise alone (no Server / errors yet).
+    native.on('error', (e:js.lib.Error) -> errorsTrigger.trigger(Error.ofJsError(e)));
+    if (secure)
+      // Handshake-adjacent; peer never reaches Handler via secureConnection.
+      native.on('tlsClientError', (e:js.lib.Error, _) -> errorsTrigger.trigger(Error.ofJsError(e)));
     // A TLS server hands off raw sockets on 'connection' before the handshake completes;
     // the handshaked, encrypted socket is only available via 'secureConnection'.
     native.on(secure ? 'secureConnection' : 'connection', (c:js.node.net.Socket) -> {
