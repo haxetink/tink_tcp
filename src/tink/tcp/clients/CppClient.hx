@@ -111,7 +111,7 @@ class CppClient {
     if (tls == null) {
       finish(ctx, () -> {
         final duplex = new CppDuplex('Connection to ${ctx.to}', ctx.tcp);
-        Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, ctx.app);
+        Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, ctx.app, duplex.abort);
         ctx.resolve(Noise);
       });
       return;
@@ -129,7 +129,7 @@ class CppClient {
             case Success(_):
               finish(ctx, () -> {
                 final duplex = new CppTlsDuplex('Connection to ${ctx.to}', session, null, ctx.to);
-                Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, ctx.app);
+                Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, ctx.app, duplex.abort);
                 ctx.resolve(Noise);
               });
             case Failure(e):

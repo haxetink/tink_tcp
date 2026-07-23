@@ -15,12 +15,18 @@ class CppTlsDuplex {
   private final sink:RealSink;
   private final local:Endpoint;
   private final peer:Endpoint;
+  private final session:CppTlsSession;
 
   private function new(name:String, session:CppTlsSession, ?local:Endpoint, ?peer:Endpoint) {
     this.local = local ?? {host: '?', port: 0};
     this.peer = peer ?? {host: '?', port: 0};
+    this.session = session;
     source = TlsSource.wrap('Incoming stream of $name', session);
     sink = TlsSink.wrap('Outcoming stream of $name', session);
+  }
+
+  private function abort():Void {
+    session.abort();
   }
 }
 #end
