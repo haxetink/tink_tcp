@@ -8,15 +8,15 @@ import tink.io.DuplexSink;
 import tink.io.DuplexSource;
 import tink.io.cpp.CppUvStream;
 
-/** Internal duplex plumbing for Session.run. */
+/** Internal duplex plumbing for Handler.run. */
 @:allow(tink.tcp.clients)
 @:allow(tink.tcp.servers)
-class CppDuplex {
-  private final source:RealSource;
-  private final sink:RealSink;
-  private final local:Endpoint;
-  private final peer:Endpoint;
+class CppDuplex implements Connection {
   private final stream:CppUvStream;
+  public final source:RealSource;
+  public final sink:RealSink;
+  public final local:Endpoint;
+  public final peer:Endpoint;
 
   private function new(name:String, tcp:Tcp, ?local:Endpoint, ?peer:Endpoint) {
     this.local = local ?? endpointFrom(tcp.getSockAddress());
@@ -26,7 +26,7 @@ class CppDuplex {
     sink = DuplexSink.wrap('Outcoming stream of $name', stream);
   }
 
-  private function abort():Void {
+  public function abort():Void {
     stream.abort();
   }
 

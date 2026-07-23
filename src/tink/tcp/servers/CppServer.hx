@@ -75,7 +75,7 @@ class CppServer implements ServerObject {
     final peerEp:Endpoint = {host: peer.host, port: peer.port};
     if (tls == null) {
       final duplex = new CppDuplex(name, client, local, peerEp);
-      Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app, duplex.abort);
+      app.run(duplex);
       return;
     }
     try {
@@ -83,7 +83,7 @@ class CppServer implements ServerObject {
       session.handshake().handle(o -> switch o {
         case Success(_):
           final duplex = new CppTlsDuplex(name, session, local, peerEp);
-          Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app, duplex.abort);
+          app.run(duplex);
         case Failure(e):
           // Handshake failed after accept; close peer and keep listening.
           errorsTrigger.trigger(e);
