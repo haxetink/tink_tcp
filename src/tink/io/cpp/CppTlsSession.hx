@@ -6,6 +6,7 @@ import haxe.io.Bytes;
 import tink.Chunk;
 import tink.tcp.cpp.mbedtls.Mbedtls;
 import tink.tcp.cpp.mbedtls.NativeTls;
+import tink.tcp.Endpoint;
 import tink.tcp.tls.TlsConfig;
 import tink.tcp.tls.TlsContext;
 import uv.*;
@@ -136,6 +137,18 @@ class CppTlsSession implements tink.io.TlsSession {
     if (waiter != null)
       waiter();
     hardCloseTcp();
+  }
+
+  public function getLocalEndpoint():Endpoint {
+    return endpointFrom(tcp.getSockAddress());
+  }
+
+  public function getPeerEndpoint():Endpoint {
+    return endpointFrom(tcp.getPeerAddress());
+  }
+
+  static function endpointFrom(addr:{host:String, port:Int}):Endpoint {
+    return {host: addr.host, port: addr.port};
   }
 
   function hardCloseTcp() {
