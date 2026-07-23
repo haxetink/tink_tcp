@@ -38,6 +38,7 @@ class Client {
 
 interface Server {
   var endpoint(get, never):Endpoint;
+  var errors(get, never):Signal<Error>;
   function shutdown():Promise<Noise>;
 
   static public function bind(to:Endpoint, app:Handler, ?options:BindOptions):Promise<Server>;
@@ -49,6 +50,8 @@ interface Server {
 `Server.bind` takes a `Handler` up front. Each accepted peer is passed to that handler; the returned `IdealSource` is piped to the peer (`pipeTo(sink, {end: true})`).
 
 **`incoming.closed`:** a `Future<SessionOutcome>` that settles **once** when the outbound IdealSource pipe (and sink `end` / TLS shutdown) finishes. Subscribe at the start of the Handler — the Future exists before `app` runs. Outcomes: `GoneGraceful` (pipe + end/shutdown succeeded), `Aborted` (this side called `abort()`), or `Failed(e)` (outbound write and/or end/shutdown failed). Inbound `source` read errors are **not** reported here; the Handler owns inbound. Prefer `closed` over treating `Client.connect`’s Promise as session lifetime.
+
+**`Server.errors`:** a `Signal<Error>` for **listen-adjacent** faults only — accept-loop failures (non-shutdown) and server TLS handshake failures for peers that never reach the `Handler`. It does **not** report per-session I/O or outbound pipe failures; use `incoming.closed` for those. Shutdown-interrupted accept stays silent.
 
 **Graceful close vs `abort()`:** The normal teardown is finishing both sides of the session — drain or end the inbound `source`, and let the returned `IdealSource` complete so `pipeTo(sink, {end: true})` can shut the socket down cleanly (TCP FIN / orderly TLS shutdown as the platform provides) — that path settles `closed` as `GoneGraceful`. Call `incoming.abort()` when you need to tear down mid-session without completing that path: it is an **idempotent, best-effort hard close / local cleanup** of the underlying socket or handle (pending reads/writes fail or end; graceful stream `end` / TLS `close_notify` are skipped) and settles `closed` as `Aborted` (abort wins over a concurrent pipe failure). A TCP RST (or `ECONNRESET`) is **not** promised.
 
@@ -65,6 +68,7 @@ Server.bind({ host: '0.0.0.0', port: 8080 }, incoming -> {
   return ('hello\n' : IdealSource).append(incoming.source.idealize(_ -> Source.EMPTY));
 }).handle(o -> switch o {
   case Success(server):
+    server.errors.handle(e -> {/* accept / server-TLS-handshake only; not session I/O */});
     Client.connect(server.endpoint, incoming -> {
       incoming.source.all().handle(_ -> {});
       return ('ping\n' : IdealSource);

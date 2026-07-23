@@ -13,6 +13,7 @@ class RunTests {
       new TestSessionClosed(),
       #if (nodejs || java || hl || cpp || (eval && eval_tls))
       new TlsTest(),
+      new TestServerErrors(),
       #end
     ])).handle(Runner.exit);
   }
