@@ -5,6 +5,7 @@ import tink.io.DuplexSink;
 import tink.io.DuplexStream;
 import tink.io.TlsSession;
 import tink.io.TlsSink;
+import tink.tcp.Endpoint;
 
 using tink.io.Source;
 using tink.CoreApi;
@@ -120,4 +121,9 @@ private class FailShutdownSession implements TlsSession {
     cb.invoke(Success(Noise));
   public function shutdown(cb:Callback<Outcome<Noise, Error>>):Void
     cb.invoke(Failure(new Error('shutdown failed')));
+  public function abort():Void {}
+  public function getLocalEndpoint():Endpoint
+    return {host: '?', port: 0};
+  public function getPeerEndpoint():Endpoint
+    return {host: '?', port: 0};
 }
