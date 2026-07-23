@@ -25,7 +25,7 @@ class NodeServer implements ServerObject {
     // the handshaked, encrypted socket is only available via 'secureConnection'.
     native.on(secure ? 'secureConnection' : 'connection', (c:js.node.net.Socket) -> {
       final duplex = new NodeDuplex('Connection from ${c.remoteAddress}', c);
-      Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, this.app);
+      Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, this.app, duplex.abort);
     });
   }
 
