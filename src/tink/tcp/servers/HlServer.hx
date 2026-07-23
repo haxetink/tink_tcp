@@ -5,7 +5,7 @@ import hl.uv.Loop;
 import hl.uv.Tcp;
 import sys.net.Host;
 import tink.tcp.Server;
-import tink.tcp.connections.HlDuplex;
+import tink.tcp.connections.HlConnection;
 import tink.tcp.connections.TlsConnection;
 import tink.tcp.hl.HlLoop;
 import tink.tcp.tls.TlsConfig;
@@ -53,7 +53,7 @@ class HlServer implements ServerObject {
     final name = 'Connection';
     final local:Endpoint = {host: boundHost, port: boundPort};
     if (tls == null) {
-      final duplex = new HlDuplex(name, client, local);
+      final duplex = new HlConnection(name, client, local);
       app.run(duplex);
       return;
     }

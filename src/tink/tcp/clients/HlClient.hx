@@ -5,7 +5,7 @@ import hl.uv.Loop;
 import hl.uv.Tcp;
 import sys.net.Host;
 import tink.tcp.Client.ConnectOptions;
-import tink.tcp.connections.HlDuplex;
+import tink.tcp.connections.HlConnection;
 import tink.tcp.connections.TlsConnection;
 import tink.tcp.hl.HlLoop;
 import tink.tcp.tls.TlsConfig;
@@ -50,7 +50,7 @@ class HlClient {
         final tls = options?.tls;
         if (tls == null) {
           finish(() -> {
-            final duplex = new HlDuplex('Connection to $to', tcp, null, to);
+            final duplex = new HlConnection('Connection to $to', tcp, null, to);
             app.run(duplex);
             resolve(Noise);
           });

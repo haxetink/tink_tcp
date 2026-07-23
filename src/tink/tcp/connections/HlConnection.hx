@@ -11,7 +11,7 @@ import tink.io.hl.HlUvStream;
 /** Internal duplex plumbing for Handler.run. */
 @:allow(tink.tcp.clients)
 @:allow(tink.tcp.servers)
-class HlDuplex implements Connection {
+class HlConnection implements Connection {
   public final source:RealSource;
   public final sink:RealSink;
   public final local:Endpoint;
