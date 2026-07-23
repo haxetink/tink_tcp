@@ -30,7 +30,7 @@ typedef IncomingConnection = {
   function abort():Void;
 }
 
-/** Internal duplex shape; platforms pass `*Duplex` to `Handler.run`. */
+/** Internal connection shape; platforms pass `*Connection` / `TlsConnection` to `Handler.run`. */
 interface Connection {
   final source:RealSource;
   final sink:RealSink;
@@ -41,7 +41,7 @@ interface Connection {
 
 @:callable
 abstract Handler(IncomingConnection->IdealSource) from IncomingConnection->IdealSource {
-  /** Platforms call `app.run(duplex)` after dial/accept (fire-and-forget). */
+  /** Platforms call `app.run(conn)` after dial/accept (fire-and-forget). */
   public function run(conn:Connection):Void;
 }
 
