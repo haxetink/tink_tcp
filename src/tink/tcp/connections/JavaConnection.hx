@@ -7,7 +7,7 @@ import tink.io.Sink;
 /** Internal duplex plumbing for Handler.run. */
 @:allow(tink.tcp.clients)
 @:allow(tink.tcp.servers)
-class JavaDuplex implements Connection {
+class JavaConnection implements Connection {
   public final source:RealSource;
   public final sink:RealSink;
   public final local:Endpoint;

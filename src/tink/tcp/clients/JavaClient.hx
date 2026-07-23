@@ -6,7 +6,7 @@ import java.nio.channels.CompletionHandler;
 import java.nio.channels.AsynchronousSocketChannel;
 import tink.tcp.Client.ConnectOptions;
 import tink.tcp.connections.Connection;
-import tink.tcp.connections.JavaDuplex;
+import tink.tcp.connections.JavaConnection;
 import tink.tcp.connections.TlsConnection;
 import tink.tcp.tls.TlsConfig;
 import tink.io.java.JavaTlsSession;
@@ -62,7 +62,7 @@ private class ConnectedHandler implements CompletionHandler<java.lang.Void, Asyn
     OnMainThread.run(() -> {
       final tls = options?.tls;
       if (tls == null) {
-        start(new JavaDuplex('Connection to ${socket.getRemoteAddress()}', socket));
+        start(new JavaConnection('Connection to ${socket.getRemoteAddress()}', socket));
       } else {
         switch TlsConfig.fromClient(tls) {
           case Failure(e):
