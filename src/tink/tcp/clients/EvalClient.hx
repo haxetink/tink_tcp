@@ -3,7 +3,7 @@ package tink.tcp.clients;
 
 import eval.luv.*;
 import tink.tcp.Client.ConnectOptions;
-import tink.tcp.connections.EvalDuplex;
+import tink.tcp.connections.EvalConnection;
 import tink.tcp.eval.EvalLoop;
 #if eval_tls
 import tink.tcp.connections.TlsConnection;
@@ -96,7 +96,7 @@ class EvalClient {
             }
             #end
             finish(() -> {
-              final duplex = new EvalDuplex('Connection to $to', tcp);
+              final duplex = new EvalConnection('Connection to $to', tcp);
               app.run(duplex);
               resolve(Noise);
             });

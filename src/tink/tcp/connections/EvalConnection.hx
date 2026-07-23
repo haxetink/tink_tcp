@@ -11,7 +11,7 @@ import tink.io.luv.WrappedStream;
 /** Internal duplex plumbing for Handler.run. */
 @:allow(tink.tcp.clients)
 @:allow(tink.tcp.servers)
-class EvalDuplex implements Connection {
+class EvalConnection implements Connection {
   private final stream:WrappedStream;
   public final source:RealSource;
   public final sink:RealSink;
