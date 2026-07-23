@@ -86,7 +86,9 @@ class HlUvStream implements tink.io.DuplexStream {
 
   public function write(chunk:Chunk):Promise<Bool> {
     return Future.irreversible(cb -> {
-      if (chunk.length == 0)
+      if (writeEnded || closed) {
+        cb(Failure(new Error('Write failed for "$name"')));
+      } else if (chunk.length == 0)
         cb(Success(true));
       else {
         final bytes = chunk.toBytes();
@@ -123,6 +125,19 @@ class HlUvStream implements tink.io.DuplexStream {
         }
       }
     });
+  }
+
+  /**
+    Best-effort hard-close: end pending read waiters, mark both sides ended so a later
+    `end()` / UV shutdown is skipped, then `doClose()` (no graceful FIN).
+  **/
+  public function abort():Void {
+    writeEnded = true;
+    finishReading();
+    readEnded = true;
+    while (readWaiters.length > 0)
+      readWaiters.shift().invoke(Success(null));
+    doClose();
   }
 
   function tryClose() {

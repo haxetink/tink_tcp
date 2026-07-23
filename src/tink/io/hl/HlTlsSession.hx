@@ -98,6 +98,23 @@ class HlTlsSession implements tink.io.TlsSession {
     pumpShutdown(cb);
   }
 
+  /**
+    Force-abort: mark closed, wake pending net waiters, hard-close the TCP stream.
+    Skips TLS close_notify and UV shutdown; later `shutdown()` is a no-op via `closed`.
+  **/
+  public function abort():Void {
+    if (closed)
+      return;
+    closed = true;
+    finishNetRead();
+    writeActive = false;
+    final waiter = writeWaiter;
+    writeWaiter = null;
+    if (waiter != null)
+      waiter();
+    stream.close();
+  }
+
   function pumpHandshake(onDone:Void->Void, onFail:tink.core.Error->Void) {
     if (closed)
       return;
@@ -143,6 +160,10 @@ class HlTlsSession implements tink.io.TlsSession {
   }
 
   function writeBytes(data:Bytes, offset:Int, remaining:Int, cb:Callback<Outcome<Noise, tink.core.Error>>) {
+    if (closed) {
+      cb.invoke(Failure(tlsError('TLS connection closed')));
+      return;
+    }
     if (remaining <= 0) {
       flushNetOut(() -> cb.invoke(Success(Noise)));
       return;
@@ -258,6 +279,16 @@ class HlTlsSession implements tink.io.TlsSession {
   }
 
   function writeNetOut(done:Void->Void) {
+    if (closed) {
+      writeActive = false;
+      netOut = new haxe.io.BytesBuffer();
+      final waiter = writeWaiter;
+      writeWaiter = null;
+      done();
+      if (waiter != null)
+        waiter();
+      return;
+    }
     if (netOut.length == 0) {
       writeActive = false;
       final waiter = writeWaiter;
@@ -270,7 +301,7 @@ class HlTlsSession implements tink.io.TlsSession {
     final bytes = netOut.getBytes();
     netOut = new haxe.io.BytesBuffer();
     stream.write(bytes, ok -> {
-      if (!ok) {
+      if (!ok || closed) {
         writeActive = false;
         done();
         return;
