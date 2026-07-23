@@ -7,7 +7,7 @@ import java.nio.channels.AsynchronousSocketChannel;
 import tink.tcp.Client.ConnectOptions;
 import tink.tcp.connections.Connection;
 import tink.tcp.connections.JavaDuplex;
-import tink.tcp.connections.JavaTlsDuplex;
+import tink.tcp.connections.TlsConnection;
 import tink.tcp.tls.TlsConfig;
 import tink.io.java.JavaTlsSession;
 import tink.io.java.OnMainThread;
@@ -74,7 +74,7 @@ private class ConnectedHandler implements CompletionHandler<java.lang.Void, Asyn
               final tlsSession = new JavaTlsSession(tlsCfg, socket, to.host, to.port);
               tlsSession.handshake().next(_ -> tlsSession).handle(o -> switch o {
                 case Success(s):
-                  start(new JavaTlsDuplex('Connection to ${socket.getRemoteAddress()}', s));
+                  start(new TlsConnection('Connection to ${socket.getRemoteAddress()}', s));
                 case Failure(e):
                   try socket.close()
                   catch (_:Dynamic) {}
