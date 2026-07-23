@@ -8,15 +8,15 @@ import tink.io.DuplexSink;
 import tink.io.DuplexSource;
 import tink.io.luv.WrappedStream;
 
-/** Internal duplex plumbing for Session.run. */
+/** Internal duplex plumbing for Handler.run. */
 @:allow(tink.tcp.clients)
 @:allow(tink.tcp.servers)
-class EvalDuplex {
+class EvalDuplex implements Connection {
   private final stream:WrappedStream;
-  private final source:RealSource;
-  private final sink:RealSink;
-  private final local:Endpoint;
-  private final peer:Endpoint;
+  public final source:RealSource;
+  public final sink:RealSink;
+  public final local:Endpoint;
+  public final peer:Endpoint;
 
   private function new(name:String, native:Tcp) {
     peer = switch native.getPeerName() {
@@ -33,7 +33,7 @@ class EvalDuplex {
   }
 
   /** Best-effort hard-close via WrappedStream.abort (skips UV shutdown). */
-  private function abort():Void {
+  public function abort():Void {
     stream.abort();
   }
 }

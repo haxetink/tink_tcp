@@ -8,15 +8,15 @@ import tink.io.TlsSink;
 import tink.io.TlsSource;
 import tink.io.eval.EvalTlsSession;
 
-/** Internal duplex plumbing for Session.run. */
+/** Internal duplex plumbing for Handler.run. */
 @:allow(tink.tcp.clients)
 @:allow(tink.tcp.servers)
-class EvalTlsDuplex {
+class EvalTlsDuplex implements Connection {
   private final session:EvalTlsSession;
-  private final source:RealSource;
-  private final sink:RealSink;
-  private final local:Endpoint;
-  private final peer:Endpoint;
+  public final source:RealSource;
+  public final sink:RealSink;
+  public final local:Endpoint;
+  public final peer:Endpoint;
 
   private function new(name:String, session:EvalTlsSession) {
     this.session = session;
@@ -34,7 +34,7 @@ class EvalTlsDuplex {
   }
 
   /** Best-effort hard-close via session-level force-abort (skips TLS close_notify / UV shutdown). */
-  private function abort():Void {
+  public function abort():Void {
     session.abort();
   }
 }
