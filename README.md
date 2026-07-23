@@ -22,15 +22,28 @@ enum SessionOutcome {
   Failed(e:Error); // outbound pipe and/or end/shutdown failed
 }
 
-interface IncomingConnection {
-  var source(get, never):RealSource;
-  var local(get, never):Endpoint;
-  var peer(get, never):Endpoint;
-  var closed(get, never):Future<SessionOutcome>;
+typedef IncomingConnection = {
+  final source:RealSource;
+  final local:Endpoint;
+  final peer:Endpoint;
+  final closed:Future<SessionOutcome>;
   function abort():Void;
 }
 
-typedef Handler = IncomingConnection->IdealSource;
+/** Internal duplex shape; platforms pass `*Duplex` to `Handler.run`. */
+interface Connection {
+  final source:RealSource;
+  final sink:RealSink;
+  final local:Endpoint;
+  final peer:Endpoint;
+  function abort():Void;
+}
+
+@:callable
+abstract Handler(IncomingConnection->IdealSource) from IncomingConnection->IdealSource {
+  /** Platforms call `app.run(duplex)` after dial/accept (fire-and-forget). */
+  public function run(conn:Connection):Void;
+}
 
 class Client {
   static public function connect(to:Endpoint, app:Handler, ?options:ConnectOptions):Promise<Noise>;
