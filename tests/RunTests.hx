@@ -10,6 +10,7 @@ class RunTests {
       new TestConnect(),
       new TestAbort(),
       new TestSinkEndFolding(),
+      new TestSessionClosed(),
       #if (nodejs || java || hl || cpp || (eval && eval_tls))
       new TlsTest(),
       #end
