@@ -10,13 +10,18 @@ using tink.CoreApi;
 class NodeServer implements ServerObject {
   final native:js.node.net.Server;
   final app:Handler;
+  final errorsStub:SignalTrigger<Error> = Signal.trigger(); // stub until S3
 
   public var endpoint(get, never):Endpoint;
+  public var errors(get, never):Signal<Error>;
 
   function get_endpoint() {
     final addr = native.address();
     return {host: addr.address, port: addr.port};
   }
+
+  function get_errors()
+    return errorsStub;
 
   private function new(server, app:Handler, secure = false) {
     this.native = server;

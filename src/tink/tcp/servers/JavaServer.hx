@@ -21,21 +21,29 @@ class JavaServer implements ServerObject {
   final app:Handler;
   final tls:Null<TlsConfig>;
   final acceptHandler:AcceptedHandler;
+  final errorsTrigger:SignalTrigger<Error>;
+  var shuttingDown = false;
 
   public var endpoint(get, never):Endpoint;
+  public var errors(get, never):Signal<Error>;
 
   function get_endpoint()
     return (native.getLocalAddress() : Endpoint);
+
+  function get_errors()
+    return errorsTrigger;
 
   private function new(server:Native, app:Handler, ?tls:TlsConfig) {
     this.native = server;
     this.app = app;
     this.tls = tls;
+    this.errorsTrigger = Signal.trigger();
     this.acceptHandler = new AcceptedHandler();
     acceptNext();
   }
 
   public function shutdown():Promise<Noise> {
+    shuttingDown = true;
     native.close();
     return Promise.NOISE;
   }
@@ -58,6 +66,7 @@ class JavaServer implements ServerObject {
             Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app, () -> duplex.abort());
             acceptNext();
           case Failure(e):
+            errorsTrigger.trigger(e);
             try socket.close()
             catch (_:Dynamic) {}
             acceptNext();
@@ -101,7 +110,12 @@ private class AcceptedHandler implements CompletionHandler<AsynchronousSocketCha
     // (ClosedChannelException; AsynchronousCloseException extends it).
     if (Std.isOfType(exc, ClosedChannelException))
       return;
-    // TODO: report other accept errors
+    OnMainThread.run(() -> {
+      server.errorsTrigger.trigger(Error.withData('Accept failed, reason: ' + exc.getMessage(), exc));
+      // Re-arm unless shutting down — a single non-shutdown failure must not kill the accept loop.
+      if (!server.shuttingDown)
+        server.acceptNext();
+    });
   }
 }
 #end

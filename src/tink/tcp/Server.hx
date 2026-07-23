@@ -1,8 +1,7 @@
 package tink.tcp;
 
 import tink.tcp.Tls.TlsServerOptions;
-
-using tink.CoreApi;
+import tink.CoreApi;
 
 typedef BindOptions = {
   ?tls:TlsServerOptions,
@@ -34,5 +33,6 @@ abstract Server(ServerObject) from ServerObject {
 
 interface ServerObject {
   var endpoint(get, never):Endpoint;
+  var errors(get, never):Signal<Error>;
   function shutdown():Promise<Noise>;
 }

@@ -20,11 +20,16 @@ class HlServer implements ServerObject {
   final tls:Null<TlsConfig>;
   final boundPort:Int;
   final boundHost:String;
+  final errorsStub:SignalTrigger<Error> = Signal.trigger(); // stub until S5
 
   public var endpoint(get, never):Endpoint;
+  public var errors(get, never):Signal<Error>;
 
   function get_endpoint()
     return {host: boundHost, port: boundPort};
+
+  function get_errors()
+    return errorsStub;
 
   private function new(server:Tcp, loop:Loop, app:Handler, boundHost:String, boundPort:Int, ?tls:TlsConfig) {
     this.native = server;

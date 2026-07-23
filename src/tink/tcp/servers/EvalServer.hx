@@ -21,8 +21,10 @@ class EvalServer implements ServerObject {
   #if eval_tls
   final tls:Null<TlsConfig>;
   #end
+  final errorsStub:SignalTrigger<Error> = Signal.trigger(); // stub until S2
 
   public var endpoint(get, never):Endpoint;
+  public var errors(get, never):Signal<Error>;
 
   function get_endpoint() {
     return switch native.getSockName() {
@@ -30,6 +32,9 @@ class EvalServer implements ServerObject {
       case Error(_): {host: '?', port: 0};
     };
   }
+
+  function get_errors()
+    return errorsStub;
 
   private function new(server:Tcp, loop:Loop, app:Handler #if eval_tls , ?tls:TlsConfig #end) {
     this.native = server;
