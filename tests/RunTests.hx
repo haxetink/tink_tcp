@@ -8,6 +8,7 @@ class RunTests {
     Runner.run(TestBatch.make([
       new EchoTest(),
       new TestConnect(),
+      new TestAbort(),
       #if (nodejs || java || hl || cpp || (eval && eval_tls))
       new TlsTest(),
       #end

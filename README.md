@@ -16,10 +16,11 @@ abstract Endpoint from { host: String, port: Int } {
   @:to function toString():String;
 }
 
-typedef IncomingConnection = {
-  final source:RealSource;
-  final local:Endpoint;
-  final peer:Endpoint;
+interface IncomingConnection {
+  var source(get, never):RealSource;
+  var local(get, never):Endpoint;
+  var peer(get, never):Endpoint;
+  function abort():Void;
 }
 
 typedef Handler = IncomingConnection->IdealSource;
@@ -39,6 +40,8 @@ interface Server {
 `Client.connect` resolves when the TCP/TLS dial **succeeds** and rejects when it **fails**. The handler runs only after a successful dial. The Promise does **not** wait for the handler’s outbound pipe or session lifetime.
 
 `Server.bind` takes a `Handler` up front. Each accepted peer is passed to that handler; the returned `IdealSource` is piped to the peer (`pipeTo(sink, {end: true})`).
+
+**Graceful close vs `abort()`:** The normal teardown is finishing both sides of the session — drain or end the inbound `source`, and let the returned `IdealSource` complete so `pipeTo(sink, {end: true})` can shut the socket down cleanly (TCP FIN / orderly TLS shutdown as the platform provides). Call `incoming.abort()` when you need to tear down mid-session without completing that path: it is an **idempotent, best-effort hard close / local cleanup** of the underlying socket or handle (pending reads/writes fail or end; graceful stream `end` / TLS `close_notify` are skipped). A TCP RST (or `ECONNRESET`) is **not** promised.
 
 Use the static entry points — do not construct platform clients:
 
