@@ -7,14 +7,14 @@ import tink.io.java.JavaTlsSession;
 import tink.io.java.JavaTlsSource;
 import tink.io.java.JavaTlsSink;
 
-/** Internal duplex plumbing for Session.run. */
+/** Internal duplex plumbing for Handler.run. */
 @:allow(tink.tcp.clients)
 @:allow(tink.tcp.servers)
-class JavaTlsDuplex {
-  private final source:RealSource;
-  private final sink:RealSink;
-  private final local:Endpoint;
-  private final peer:Endpoint;
+class JavaTlsDuplex implements Connection {
+  public final source:RealSource;
+  public final sink:RealSink;
+  public final local:Endpoint;
+  public final peer:Endpoint;
   private final session:JavaTlsSession;
 
   private function new(name:String, session:JavaTlsSession) {
@@ -26,7 +26,7 @@ class JavaTlsDuplex {
     sink = JavaTlsSink.wrap('Outcoming stream of $name', session, native);
   }
 
-  function abort():Void {
+  public function abort():Void {
     session.abort();
   }
 }

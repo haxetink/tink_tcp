@@ -5,6 +5,7 @@ import java.lang.Throwable;
 import java.nio.channels.CompletionHandler;
 import java.nio.channels.AsynchronousSocketChannel;
 import tink.tcp.Client.ConnectOptions;
+import tink.tcp.connections.Connection;
 import tink.tcp.connections.JavaDuplex;
 import tink.tcp.connections.JavaTlsDuplex;
 import tink.tcp.tls.TlsConfig;
@@ -52,8 +53,8 @@ private class ConnectedHandler implements CompletionHandler<java.lang.Void, Asyn
     this.cb = cb;
   }
 
-  function start(source, sink, local, peer, abort:Void->Void) {
-    Session.run(source, sink, local, peer, app, abort);
+  function start(duplex:Connection) {
+    app.run(duplex);
     cb.invoke(Success(Noise));
   }
 
@@ -61,8 +62,7 @@ private class ConnectedHandler implements CompletionHandler<java.lang.Void, Asyn
     OnMainThread.run(() -> {
       final tls = options?.tls;
       if (tls == null) {
-        final duplex = new JavaDuplex('Connection to ${socket.getRemoteAddress()}', socket);
-        start(duplex.source, duplex.sink, duplex.local, duplex.peer, () -> duplex.abort());
+        start(new JavaDuplex('Connection to ${socket.getRemoteAddress()}', socket));
       } else {
         switch TlsConfig.fromClient(tls) {
           case Failure(e):
@@ -74,8 +74,7 @@ private class ConnectedHandler implements CompletionHandler<java.lang.Void, Asyn
               final tlsSession = new JavaTlsSession(tlsCfg, socket, to.host, to.port);
               tlsSession.handshake().next(_ -> tlsSession).handle(o -> switch o {
                 case Success(s):
-                  final duplex = new JavaTlsDuplex('Connection to ${socket.getRemoteAddress()}', s);
-                  start(duplex.source, duplex.sink, duplex.local, duplex.peer, () -> duplex.abort());
+                  start(new JavaTlsDuplex('Connection to ${socket.getRemoteAddress()}', s));
                 case Failure(e):
                   try socket.close()
                   catch (_:Dynamic) {}

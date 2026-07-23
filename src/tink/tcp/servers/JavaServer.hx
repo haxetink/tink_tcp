@@ -55,7 +55,7 @@ class JavaServer implements ServerObject {
   function onAccepted(socket:AsynchronousSocketChannel) {
     if (tls == null) {
       final duplex = new JavaDuplex('Connection from ${socket.getRemoteAddress()}', socket);
-      Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app, () -> duplex.abort());
+      app.run(duplex);
       acceptNext();
     } else {
       final tlsSession = new JavaTlsSession(tls, socket);
@@ -63,7 +63,7 @@ class JavaServer implements ServerObject {
         switch o {
           case Success(s):
             final duplex = new JavaTlsDuplex('Connection from ${socket.getRemoteAddress()}', s);
-            Session.run(duplex.source, duplex.sink, duplex.local, duplex.peer, app, () -> duplex.abort());
+            app.run(duplex);
             acceptNext();
           case Failure(e):
             errorsTrigger.trigger(e);

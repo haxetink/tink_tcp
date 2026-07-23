@@ -4,14 +4,14 @@ package tink.tcp.connections;
 import tink.io.Source;
 import tink.io.Sink;
 
-/** Internal duplex plumbing for Session.run. */
+/** Internal duplex plumbing for Handler.run. */
 @:allow(tink.tcp.clients)
 @:allow(tink.tcp.servers)
-class JavaDuplex {
-  private final source:RealSource;
-  private final sink:RealSink;
-  private final local:Endpoint;
-  private final peer:Endpoint;
+class JavaDuplex implements Connection {
+  public final source:RealSource;
+  public final sink:RealSink;
+  public final local:Endpoint;
+  public final peer:Endpoint;
   private final channel:java.nio.channels.AsynchronousSocketChannel;
   var aborted = false;
 
@@ -23,7 +23,7 @@ class JavaDuplex {
     sink = Sink.ofJavaSocketChannel('Outcoming stream of $name', native);
   }
 
-  function abort():Void {
+  public function abort():Void {
     if (aborted)
       return;
     aborted = true;
