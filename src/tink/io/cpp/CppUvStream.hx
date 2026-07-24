@@ -4,6 +4,7 @@ package tink.io.cpp;
 import cpp.*;
 import haxe.io.Bytes;
 import tink.Chunk;
+import tink.tcp.Endpoint;
 import uv.*;
 import uv.Native.UvHandle;
 import uv.Native.UvStream;
@@ -29,7 +30,7 @@ private typedef EndCtx = {
 /**
   Async TCP stream over linc_uv. Callbacks use `setData` + static Callables.
 **/
-class CppUvStream implements tink.io.DuplexStream {
+class CppUvStream implements tink.io.TcpSession {
   final name:String;
   public final tcp:Tcp;
   final stream:Stream;
@@ -223,6 +224,18 @@ class CppUvStream implements tink.io.DuplexStream {
     while (readWaiters.length > 0)
       readWaiters.shift().invoke(Success(null));
     doClose();
+  }
+
+  public function getLocalEndpoint():Endpoint {
+    return endpointFrom(tcp.getSockAddress());
+  }
+
+  public function getPeerEndpoint():Endpoint {
+    return endpointFrom(tcp.getPeerAddress());
+  }
+
+  static function endpointFrom(addr:{host:String, port:Int}):Endpoint {
+    return {host: addr.host, port: addr.port};
   }
 
   static function uvError(code:Int, message:String):Error {
