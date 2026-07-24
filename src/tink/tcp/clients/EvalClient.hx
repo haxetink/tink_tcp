@@ -4,7 +4,7 @@ package tink.tcp.clients;
 import eval.luv.*;
 import tink.tcp.Client.ConnectOptions;
 import tink.tcp.connections.TcpConnection;
-import tink.tcp.eval.EvalLoop;
+import tink.tcp.internal.eval.EvalLoop;
 import tink.tcp.internal.eval.EvalTcpSession;
 #if eval_tls
 import tink.tcp.tls.TlsConfig;

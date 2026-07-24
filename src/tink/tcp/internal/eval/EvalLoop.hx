@@ -1,5 +1,5 @@
 #if eval
-package tink.tcp.eval;
+package tink.tcp.internal.eval;
 
 import eval.luv.Async;
 import eval.luv.Handle;
