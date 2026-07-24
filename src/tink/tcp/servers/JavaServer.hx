@@ -4,7 +4,7 @@ package tink.tcp.servers;
 import tink.tcp.Server;
 import tink.tcp.Server.BindOptions;
 import tink.tcp.connections.JavaConnection;
-import tink.tcp.connections.TlsConnection;
+import tink.tcp.connections.TcpConnection;
 import tink.tcp.tls.TlsConfig;
 import tink.io.java.JavaTlsSession;
 import tink.io.java.OnMainThread;
@@ -62,7 +62,7 @@ class JavaServer implements ServerObject {
       tlsSession.handshake().next(_ -> tlsSession).handle(o -> {
         switch o {
           case Success(s):
-            final duplex = new TlsConnection('Connection from ${socket.getRemoteAddress()}', s);
+            final duplex = new TcpConnection('Connection from ${socket.getRemoteAddress()}', s);
             app.run(duplex);
             acceptNext();
           case Failure(e):
