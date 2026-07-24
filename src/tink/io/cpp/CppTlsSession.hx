@@ -26,7 +26,7 @@ private typedef TlsWriteCtx = {
 
 private typedef TlsShutdownCtx = {
   session:CppTlsSession,
-  cb:Callback<Outcome<Noise, Error>>,
+  cb:Callback<Outcome<Bool, Error>>,
 };
 
 @:allow(tink.io.cpp)
@@ -93,36 +93,37 @@ class CppTlsSession implements tink.io.TlsSession {
     });
   }
 
-  public function read(cb:Callback<Outcome<Null<Chunk>, Error>>):Void {
-    if (closed) {
-      cb.invoke(Success(null));
-      return;
-    }
-    pumpRead(cb);
+  public function read():Promise<Null<Chunk>> {
+    return Future.irreversible(cb -> {
+      if (closed)
+        cb(Success(null));
+      else
+        pumpRead(cb);
+    });
   }
 
-  public function write(chunk:Chunk, cb:Callback<Outcome<Noise, Error>>):Void {
-    if (chunk.length == 0) {
-      cb.invoke(Success(Noise));
-      return;
-    }
-    if (closed) {
-      cb.invoke(Failure(tlsError('TLS connection closed')));
-      return;
-    }
-    writeBytes(chunk.toBytes(), 0, chunk.length, cb);
+  public function write(chunk:Chunk):Promise<Bool> {
+    return Future.irreversible(cb -> {
+      if (chunk.length == 0)
+        cb(Success(true));
+      else if (closed)
+        cb(Failure(tlsError('TLS connection closed')));
+      else
+        writeBytes(chunk.toBytes(), 0, chunk.length, cb);
+    });
   }
 
-  public function shutdown(cb:Callback<Outcome<Noise, Error>>):Void {
-    if (closed) {
-      cb.invoke(Success(Noise));
-      return;
-    }
-    pumpShutdown(cb);
+  public function end():Promise<Bool> {
+    return Future.irreversible(cb -> {
+      if (closed)
+        cb(Success(false));
+      else
+        pumpShutdown(cb);
+    });
   }
 
   /**
-    Session-level force-abort: mark closed so later `shutdown()` is a no-op, wake pending
+    Session-level force-abort: mark closed so later `end()` is a no-op, wake pending
     waiters, and hard-close the underlying TCP handle (no TLS close_notify / UV shutdown).
   **/
   public function abort():Void {
@@ -199,7 +200,7 @@ class CppTlsSession implements tink.io.TlsSession {
       cb.invoke(Failure(tlsError('TLS read failed: ${Mbedtls.errorString(r)}', r)));
   }
 
-  function writeBytes(data:Bytes, offset:Int, remaining:Int, cb:Callback<Outcome<Noise, Error>>) {
+  function writeBytes(data:Bytes, offset:Int, remaining:Int, cb:Callback<Outcome<Bool, Error>>) {
     // Guard re-entry after abort: woken readWaiters / writeWaiter must not loop
     // writeBytes → flushNetOut(aborted→done) → ensureNetRead → writeBytes.
     if (closed) {
@@ -207,7 +208,7 @@ class CppTlsSession implements tink.io.TlsSession {
       return;
     }
     if (remaining <= 0) {
-      flushNetOut(() -> cb.invoke(Success(Noise)));
+      flushNetOut(() -> cb.invoke(Success(true)));
       return;
     }
     final ptr:ConstStar<UInt8> = untyped __cpp__('(const unsigned char*){0}->GetBase() + {1}', data.getData(), offset);
@@ -222,7 +223,7 @@ class CppTlsSession implements tink.io.TlsSession {
       cb.invoke(Failure(tlsError('TLS write failed: ${Mbedtls.errorString(r)}', r)));
   }
 
-  function pumpShutdown(cb:Callback<Outcome<Noise, Error>>) {
+  function pumpShutdown(cb:Callback<Outcome<Bool, Error>>) {
     closed = true;
     flushNetOut(() -> {
       final shutdownReq = new Shutdown();
@@ -241,7 +242,7 @@ class CppTlsSession implements tink.io.TlsSession {
     if (status != 0)
       ctx.cb.invoke(Failure(Error.withData('TLS shutdown failed', status)));
     else
-      ctx.cb.invoke(Success(Noise));
+      ctx.cb.invoke(Success(false));
   }
 
   function appendNetIn(data:Bytes) {
