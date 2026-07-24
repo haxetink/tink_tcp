@@ -1,7 +1,7 @@
 package tink.tcp.tls;
 
 #if cpp
-typedef TlsContext = tink.tcp.cpp.mbedtls.NativeTls.TlsSslPtr;
+typedef TlsContext = tink.tcp.internal.cpp.mbedtls.NativeTls.TlsSslPtr;
 #elseif eval
 typedef TlsContext = mbedtls.Ssl;
 #elseif hl

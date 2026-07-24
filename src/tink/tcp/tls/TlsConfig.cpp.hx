@@ -3,9 +3,9 @@ package tink.tcp.tls;
 import haxe.io.Bytes;
 import tink.tcp.Tls.TlsClientOptions;
 import tink.tcp.Tls.TlsServerOptions;
-import tink.tcp.cpp.mbedtls.Mbedtls;
-import tink.tcp.cpp.mbedtls.NativeTls;
-import tink.tcp.cpp.mbedtls.NativeTls.TlsConfigPtr;
+import tink.tcp.internal.cpp.mbedtls.Mbedtls;
+import tink.tcp.internal.cpp.mbedtls.NativeTls;
+import tink.tcp.internal.cpp.mbedtls.NativeTls.TlsConfigPtr;
 using tink.CoreApi;
 
 class TlsConfig {

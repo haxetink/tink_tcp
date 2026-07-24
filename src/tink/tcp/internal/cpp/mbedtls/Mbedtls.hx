@@ -1,5 +1,5 @@
 #if cpp
-package tink.tcp.cpp.mbedtls;
+package tink.tcp.internal.cpp.mbedtls;
 
 class Mbedtls {
   /** MBEDTLS_SSL_VERIFY_NONE */

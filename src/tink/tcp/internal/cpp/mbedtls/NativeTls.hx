@@ -1,5 +1,5 @@
 #if cpp
-package tink.tcp.cpp.mbedtls;
+package tink.tcp.internal.cpp.mbedtls;
 
 import cpp.*;
 
@@ -11,7 +11,7 @@ typedef TlsSslPtr = Star<cpp.Void>;
   Thin bindings to owned mbedtls via native/cpp/tink_tcp_mbedtls.cpp (hxcpp-vendored mbedtls).
 **/
 @:headerInclude('tink_tcp_mbedtls.h')
-@:build(tink.tcp.cpp.Build.includeNative())
+@:build(tink.tcp.internal.cpp.Build.includeNative())
 class NativeTls {
   public static function configCreate(isServer:Int):TlsConfigPtr
     return untyped __cpp__('tink_tls_config_create({0})', isServer);
