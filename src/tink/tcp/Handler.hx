@@ -46,8 +46,11 @@ abstract Handler(HandlerFn) from HandlerFn to HandlerFn {
     }).pipeTo(conn.sink, {end: true}).eager().handle(result -> {
       if (aborted)
         return;
+      // AllWritten = IdealSource depleted cleanly. SinkEnded = sink stopped with rest still
+      // queued (e.g. Node peer destroy → close without write error); that is not graceful.
       closed.trigger(switch result {
-        case AllWritten | SinkEnded(_, _): GoneGraceful;
+        case AllWritten: GoneGraceful;
+        case SinkEnded(_, _): Failed(new Error('Outbound sink ended before IdealSource depleted'));
         case SinkFailed(e, _): Failed(e);
       });
     });
