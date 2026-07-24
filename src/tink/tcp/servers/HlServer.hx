@@ -8,8 +8,8 @@ import tink.tcp.Server;
 import tink.tcp.connections.TcpConnection;
 import tink.tcp.hl.HlLoop;
 import tink.tcp.tls.TlsConfig;
-import tink.io.hl.HlTlsSession;
-import tink.io.hl.HlUvStream;
+import tink.tcp.internal.hl.HlTlsSession;
+import tink.tcp.internal.hl.HlTcpSession;
 
 using tink.CoreApi;
 
@@ -53,7 +53,7 @@ class HlServer implements ServerObject {
     final name = 'Connection';
     final local:Endpoint = {host: boundHost, port: boundPort};
     if (tls == null) {
-      final io = new HlUvStream(name, client, 0x10000, local);
+      final io = new HlTcpSession(name, client, 0x10000, local);
       final duplex = new TcpConnection(name, io);
       app.run(duplex);
       return;

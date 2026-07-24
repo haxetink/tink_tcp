@@ -8,8 +8,8 @@ import tink.tcp.Client.ConnectOptions;
 import tink.tcp.connections.TcpConnection;
 import tink.tcp.hl.HlLoop;
 import tink.tcp.tls.TlsConfig;
-import tink.io.hl.HlTlsSession;
-import tink.io.hl.HlUvStream;
+import tink.tcp.internal.hl.HlTlsSession;
+import tink.tcp.internal.hl.HlTcpSession;
 
 using tink.CoreApi;
 
@@ -51,7 +51,7 @@ class HlClient {
         if (tls == null) {
           finish(() -> {
             final name = 'Connection to $to';
-            final io = new HlUvStream(name, tcp, 0x10000, null, to);
+            final io = new HlTcpSession(name, tcp, 0x10000, null, to);
             final duplex = new TcpConnection(name, io);
             app.run(duplex);
             resolve(Noise);

@@ -1,5 +1,5 @@
 #if hl
-package tink.io.hl;
+package tink.tcp.internal.hl;
 
 import haxe.io.Bytes;
 import hl.uv.Stream;
@@ -9,7 +9,7 @@ import tink.tcp.tls.TlsConfig;
 import tink.tcp.tls.TlsContext;
 using tink.CoreApi;
 
-@:allow(tink.io.hl)
+@:allow(tink.tcp.internal.hl)
 class HlTlsSession implements tink.tcp.internal.TlsSession {
   public final stream:Stream;
   final context:TlsContext;

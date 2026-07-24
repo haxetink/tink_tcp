@@ -1,5 +1,5 @@
 #if hl
-package tink.io.hl;
+package tink.tcp.internal.hl;
 
 import hl.uv.Stream;
 import haxe.io.Bytes;
@@ -10,7 +10,7 @@ using tink.CoreApi;
 
 typedef HlReadOutcome = Outcome<Null<Chunk>, Error>;
 
-class HlUvStream implements tink.tcp.internal.TcpSession {
+class HlTcpSession implements tink.tcp.internal.TcpSession {
   final name:String;
   final stream:Stream;
   final chunkSize:Int;
