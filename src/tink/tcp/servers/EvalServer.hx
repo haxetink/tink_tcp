@@ -2,8 +2,9 @@
 package tink.tcp.servers;
 
 import eval.luv.*;
+import tink.io.luv.WrappedStream;
 import tink.tcp.Server;
-import tink.tcp.connections.EvalConnection;
+import tink.tcp.connections.TcpConnection;
 import tink.tcp.eval.EvalLoop;
 #if eval_tls
 import tink.tcp.connections.TlsConnection;
@@ -79,7 +80,8 @@ class EvalServer implements ServerObject {
       return;
     }
     #end
-    final duplex = new EvalConnection(name, client);
+    final stream = new WrappedStream(name, client);
+    final duplex = new TcpConnection(name, stream);
     app.run(duplex);
   }
 

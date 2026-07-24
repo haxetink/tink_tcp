@@ -2,8 +2,9 @@
 package tink.tcp.clients;
 
 import eval.luv.*;
+import tink.io.luv.WrappedStream;
 import tink.tcp.Client.ConnectOptions;
-import tink.tcp.connections.EvalConnection;
+import tink.tcp.connections.TcpConnection;
 import tink.tcp.eval.EvalLoop;
 #if eval_tls
 import tink.tcp.connections.TlsConnection;
@@ -96,7 +97,9 @@ class EvalClient {
             }
             #end
             finish(() -> {
-              final duplex = new EvalConnection('Connection to $to', tcp);
+              final name = 'Connection to $to';
+              final stream = new WrappedStream(name, tcp);
+              final duplex = new TcpConnection(name, stream);
               app.run(duplex);
               resolve(Noise);
             });
