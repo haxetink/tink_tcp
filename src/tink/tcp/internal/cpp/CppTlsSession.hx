@@ -1,5 +1,5 @@
 #if cpp
-package tink.io.cpp;
+package tink.tcp.internal.cpp;
 
 import cpp.*;
 import haxe.io.Bytes;
@@ -29,7 +29,7 @@ private typedef TlsShutdownCtx = {
   cb:Callback<Outcome<Bool, Error>>,
 };
 
-@:allow(tink.io.cpp)
+@:allow(tink.tcp.internal.cpp)
 class CppTlsSession implements tink.tcp.internal.TlsSession {
   public final tcp:Tcp;
   final stream:Stream;

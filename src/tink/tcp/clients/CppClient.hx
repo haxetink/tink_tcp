@@ -7,8 +7,8 @@ import sys.net.Host;
 import tink.tcp.Client.ConnectOptions;
 import tink.tcp.connections.TcpConnection;
 import tink.tcp.tls.TlsConfig;
-import tink.io.cpp.CppTlsSession;
-import tink.io.cpp.CppUvStream;
+import tink.tcp.internal.cpp.CppTlsSession;
+import tink.tcp.internal.cpp.CppTcpSession;
 import uv.*;
 import uv.Native.UvConnect;
 
@@ -111,7 +111,7 @@ class CppClient {
     if (tls == null) {
       finish(ctx, () -> {
         final name = 'Connection to ${ctx.to}';
-        final stream = new CppUvStream(name, ctx.tcp);
+        final stream = new CppTcpSession(name, ctx.tcp);
         final duplex = new TcpConnection(name, stream);
         ctx.app.run(duplex);
         ctx.resolve(Noise);

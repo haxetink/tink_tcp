@@ -1,5 +1,5 @@
 #if cpp
-package tink.io.cpp;
+package tink.tcp.internal.cpp;
 
 import cpp.*;
 import haxe.io.Bytes;
@@ -17,20 +17,20 @@ using tink.CoreApi;
 typedef CppReadOutcome = Outcome<Null<Chunk>, Error>;
 
 private typedef WriteCtx = {
-  stream:CppUvStream,
+  stream:CppTcpSession,
   buf:Buf,
   cb:Callback<Outcome<Bool, Error>>,
 };
 
 private typedef EndCtx = {
-  stream:CppUvStream,
+  stream:CppTcpSession,
   cb:Callback<Outcome<Bool, Error>>,
 };
 
 /**
   Async TCP stream over linc_uv. Callbacks use `setData` + static Callables.
 **/
-class CppUvStream implements tink.tcp.internal.TcpSession {
+class CppTcpSession implements tink.tcp.internal.TcpSession {
   final name:String;
   public final tcp:Tcp;
   final stream:Stream;
@@ -84,7 +84,7 @@ class CppUvStream implements tink.tcp.internal.TcpSession {
   static function onRead(handle:Star<UvStream>, nread:SSizeT, buf:ConstStar<Buf_t>) {
     final n:Int = cast nread;
     final s:Stream = Native.stream(handle);
-    final self:CppUvStream = s.asHandle().getData();
+    final self:CppTcpSession = s.asHandle().getData();
     if (self == null) {
       Buf.unmanaged(buf).free();
       return;

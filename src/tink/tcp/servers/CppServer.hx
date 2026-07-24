@@ -7,8 +7,8 @@ import sys.net.Host;
 import tink.tcp.Server;
 import tink.tcp.connections.TcpConnection;
 import tink.tcp.tls.TlsConfig;
-import tink.io.cpp.CppTlsSession;
-import tink.io.cpp.CppUvStream;
+import tink.tcp.internal.cpp.CppTlsSession;
+import tink.tcp.internal.cpp.CppTcpSession;
 import uv.*;
 import uv.Native.UvStream;
 
@@ -72,7 +72,7 @@ class CppServer implements ServerObject {
     final peer = client.getPeerAddress();
     final name = 'Connection from ${peer.host}:${peer.port}';
     if (tls == null) {
-      final stream = new CppUvStream(name, client);
+      final stream = new CppTcpSession(name, client);
       final duplex = new TcpConnection(name, stream);
       app.run(duplex);
       return;
