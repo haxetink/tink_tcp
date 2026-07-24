@@ -1,5 +1,5 @@
 #if hl
-package tink.tcp.hl;
+package tink.tcp.internal.hl;
 
 import hl.uv.Loop;
 

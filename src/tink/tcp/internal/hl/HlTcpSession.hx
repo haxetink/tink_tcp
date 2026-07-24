@@ -124,7 +124,7 @@ class HlTcpSession implements tink.tcp.internal.TcpSession {
           tryClose();
           cb(Success(false));
         } else {
-          final ok = tink.tcp.hl.UvExtras.shutdown(handle, () -> {
+          final ok = tink.tcp.internal.hl.UvExtras.shutdown(handle, () -> {
             tryClose();
             cb(Success(false));
           });

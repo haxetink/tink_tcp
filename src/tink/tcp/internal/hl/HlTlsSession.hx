@@ -93,7 +93,7 @@ class HlTlsSession implements tink.tcp.internal.TlsSession {
         stream.close(() -> cb.invoke(Success(false)));
         return;
       }
-      final ok = tink.tcp.hl.UvExtras.shutdown(handle, () -> {
+      final ok = tink.tcp.internal.hl.UvExtras.shutdown(handle, () -> {
         stream.close(() -> cb.invoke(Success(false)));
       });
       if (!ok)

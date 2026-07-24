@@ -1,6 +1,6 @@
 # HashLink native (`uv_shutdown`)
 
-`hl.uv.Stream` has no half-close. This native exports `stream_shutdown` for `tink.tcp.hl.UvExtras`, used when a sink ends (`end: true`).
+`hl.uv.Stream` has no half-close. This native exports `stream_shutdown` for `tink.tcp.internal.hl.UvExtras`, used when a sink ends (`end: true`).
 
 Haxe binds it as `@:hlNative("tink_tcp", "stream_shutdown")`.
 

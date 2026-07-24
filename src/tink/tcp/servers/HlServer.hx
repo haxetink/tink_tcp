@@ -6,7 +6,7 @@ import hl.uv.Tcp;
 import sys.net.Host;
 import tink.tcp.Server;
 import tink.tcp.connections.TcpConnection;
-import tink.tcp.hl.HlLoop;
+import tink.tcp.internal.hl.HlLoop;
 import tink.tcp.tls.TlsConfig;
 import tink.tcp.internal.hl.HlTlsSession;
 import tink.tcp.internal.hl.HlTcpSession;
