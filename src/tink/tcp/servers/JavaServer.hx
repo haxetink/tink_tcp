@@ -6,7 +6,7 @@ import tink.tcp.Server.BindOptions;
 import tink.tcp.connections.JavaConnection;
 import tink.tcp.connections.TcpConnection;
 import tink.tcp.tls.TlsConfig;
-import tink.io.java.JavaTlsSession;
+import tink.tcp.internal.java.JavaTlsSession;
 import tink.io.java.OnMainThread;
 import java.nio.channels.AsynchronousServerSocketChannel as Native;
 import java.nio.channels.AsynchronousSocketChannel;

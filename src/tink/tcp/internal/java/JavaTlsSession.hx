@@ -1,5 +1,5 @@
 #if java
-package tink.io.java;
+package tink.tcp.internal.java;
 
 import java.lang.Integer;
 import java.lang.Throwable;
@@ -8,13 +8,14 @@ import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import haxe.io.Bytes;
 import tink.Chunk;
+import tink.io.java.OnMainThread;
 import tink.tcp.Endpoint;
 import tink.tcp.tls.TlsConfig;
 import tink.tcp.tls.TlsContext;
 
 using tink.CoreApi;
 
-@:allow(tink.io.java)
+@:allow(tink.tcp.internal.java)
 class JavaTlsSession implements tink.tcp.internal.TlsSession {
   static final emptyApp = ByteBuffer.allocate(0);
 
