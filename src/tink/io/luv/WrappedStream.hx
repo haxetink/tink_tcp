@@ -3,6 +3,7 @@ package tink.io.luv;
 
 import eval.luv.*;
 import tink.Chunk;
+import tink.tcp.Endpoint;
 
 using tink.CoreApi;
 using eval.luv.Stream;
@@ -10,9 +11,9 @@ using eval.luv.Buffer;
 
 typedef ReadOutcome = Outcome<Null<Chunk>, Error>;
 
-class WrappedStream implements tink.io.DuplexStream {
+class WrappedStream implements tink.io.TcpSession {
   final name:String;
-  final stream:Stream;
+  final stream:Tcp;
   final chunkSize:Int;
 
   var readActive = false;
@@ -24,11 +25,25 @@ class WrappedStream implements tink.io.DuplexStream {
   var writeEnded = false;
   var closed = false;
 
-  public function new(name:String, stream:Stream, ?chunkSize:Int = 0x10000) {
+  public function new(name:String, stream:Tcp, ?chunkSize:Int = 0x10000) {
     this.name = name;
     this.stream = stream;
     this.chunkSize = chunkSize;
     Handle.ref(stream);
+  }
+
+  public function getLocalEndpoint():Endpoint {
+    return switch stream.getSockName() {
+      case Ok(addr): (addr : Endpoint);
+      case Error(_): {host: '?', port: 0};
+    };
+  }
+
+  public function getPeerEndpoint():Endpoint {
+    return switch stream.getPeerName() {
+      case Ok(addr): (addr : Endpoint);
+      case Error(_): {host: '?', port: 0};
+    };
   }
 
   public function read():Promise<Null<Chunk>> {
