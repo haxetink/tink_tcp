@@ -5,11 +5,12 @@ import hl.uv.Loop;
 import hl.uv.Tcp;
 import sys.net.Host;
 import tink.tcp.Server;
-import tink.tcp.connections.HlConnection;
+import tink.tcp.connections.TcpConnection;
 import tink.tcp.connections.TlsConnection;
 import tink.tcp.hl.HlLoop;
 import tink.tcp.tls.TlsConfig;
 import tink.io.hl.HlTlsSession;
+import tink.io.hl.HlUvStream;
 
 using tink.CoreApi;
 
@@ -53,7 +54,8 @@ class HlServer implements ServerObject {
     final name = 'Connection';
     final local:Endpoint = {host: boundHost, port: boundPort};
     if (tls == null) {
-      final duplex = new HlConnection(name, client, local);
+      final io = new HlUvStream(name, client, 0x10000, local);
+      final duplex = new TcpConnection(name, io);
       app.run(duplex);
       return;
     }

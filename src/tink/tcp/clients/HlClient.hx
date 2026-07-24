@@ -5,11 +5,12 @@ import hl.uv.Loop;
 import hl.uv.Tcp;
 import sys.net.Host;
 import tink.tcp.Client.ConnectOptions;
-import tink.tcp.connections.HlConnection;
+import tink.tcp.connections.TcpConnection;
 import tink.tcp.connections.TlsConnection;
 import tink.tcp.hl.HlLoop;
 import tink.tcp.tls.TlsConfig;
 import tink.io.hl.HlTlsSession;
+import tink.io.hl.HlUvStream;
 
 using tink.CoreApi;
 
@@ -50,7 +51,9 @@ class HlClient {
         final tls = options?.tls;
         if (tls == null) {
           finish(() -> {
-            final duplex = new HlConnection('Connection to $to', tcp, null, to);
+            final name = 'Connection to $to';
+            final io = new HlUvStream(name, tcp, 0x10000, null, to);
+            final duplex = new TcpConnection(name, io);
             app.run(duplex);
             resolve(Noise);
           });
