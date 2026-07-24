@@ -40,10 +40,6 @@ jobs:
       - name: Install Haxe Libraries
         run: lix download
 
-      - name: Install linc_uv for cpp
-        if: contains(matrix.target, 'cpp')
-        run: lix install gh:kevinresol/linc_uv --flat
-
       - name: Compile hxcpp tools
         if: contains(matrix.target, 'cpp') && matrix.haxe-version == 'nightly'
         run: |

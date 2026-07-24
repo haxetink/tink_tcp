@@ -3,4 +3,3 @@ node_modules
 travix.n
 native/hl/*.o
 native/hl/*.hdll
-/linc_uv
