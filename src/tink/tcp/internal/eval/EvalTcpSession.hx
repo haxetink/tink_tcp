@@ -1,5 +1,5 @@
 #if eval
-package tink.io.luv;
+package tink.tcp.internal.eval;
 
 import eval.luv.*;
 import tink.Chunk;
@@ -11,7 +11,7 @@ using eval.luv.Buffer;
 
 typedef ReadOutcome = Outcome<Null<Chunk>, Error>;
 
-class WrappedStream implements tink.tcp.internal.TcpSession {
+class EvalTcpSession implements tink.tcp.internal.TcpSession {
   final name:String;
   final stream:Tcp;
   final chunkSize:Int;

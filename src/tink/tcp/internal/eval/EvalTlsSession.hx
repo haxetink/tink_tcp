@@ -1,5 +1,5 @@
 #if eval
-package tink.io.eval;
+package tink.tcp.internal.eval;
 
 import eval.luv.*;
 import haxe.io.Bytes;
@@ -12,7 +12,7 @@ using tink.CoreApi;
 using eval.luv.Buffer;
 using eval.luv.Stream;
 
-@:allow(tink.io.eval)
+@:allow(tink.tcp.internal.eval)
 class EvalTlsSession implements tink.tcp.internal.TlsSession {
   public final tcp:Tcp;
   final context:TlsContext;
