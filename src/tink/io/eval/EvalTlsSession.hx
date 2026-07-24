@@ -48,36 +48,37 @@ class EvalTlsSession implements tink.io.TlsSession {
     });
   }
 
-  public function read(cb:Callback<Outcome<Null<Chunk>, tink.core.Error>>):Void {
-    if (closed) {
-      cb.invoke(Success(null));
-      return;
-    }
-    pumpRead(cb);
+  public function read():Promise<Null<Chunk>> {
+    return Future.irreversible(cb -> {
+      if (closed)
+        cb(Success(null));
+      else
+        pumpRead(cb);
+    });
   }
 
-  public function write(chunk:Chunk, cb:Callback<Outcome<Noise, tink.core.Error>>):Void {
-    if (chunk.length == 0) {
-      cb.invoke(Success(Noise));
-      return;
-    }
-    if (closed) {
-      cb.invoke(Failure(tlsError('TLS connection closed')));
-      return;
-    }
-    writeBytes(chunk.toBytes(), 0, chunk.length, cb);
+  public function write(chunk:Chunk):Promise<Bool> {
+    return Future.irreversible(cb -> {
+      if (chunk.length == 0)
+        cb(Success(true));
+      else if (closed)
+        cb(Failure(tlsError('TLS connection closed')));
+      else
+        writeBytes(chunk.toBytes(), 0, chunk.length, cb);
+    });
   }
 
-  public function shutdown(cb:Callback<Outcome<Noise, tink.core.Error>>):Void {
-    if (closed) {
-      cb.invoke(Success(Noise));
-      return;
-    }
-    pumpShutdown(cb);
+  public function end():Promise<Bool> {
+    return Future.irreversible(cb -> {
+      if (closed)
+        cb(Success(false));
+      else
+        pumpEnd(cb);
+    });
   }
 
   /**
-    Session-level force-abort: mark closed so later `shutdown()` is a no-op,
+    Session-level force-abort: mark closed so later `end()` is a no-op,
     wake pending waiters, hard-close TCP without TLS close_notify / UV shutdown.
   **/
   public function abort():Void {
@@ -146,13 +147,13 @@ class EvalTlsSession implements tink.io.TlsSession {
     }
   }
 
-  function writeBytes(data:Bytes, offset:Int, remaining:Int, cb:Callback<Outcome<Noise, tink.core.Error>>) {
+  function writeBytes(data:Bytes, offset:Int, remaining:Int, cb:Callback<Outcome<Bool, tink.core.Error>>) {
     if (closed) {
       cb.invoke(Failure(tlsError('TLS connection closed')));
       return;
     }
     if (remaining <= 0) {
-      flushNetOut(() -> cb.invoke(Success(Noise)));
+      flushNetOut(() -> cb.invoke(Success(true)));
       return;
     }
     final r = context.write(data, offset, remaining);
@@ -166,15 +167,16 @@ class EvalTlsSession implements tink.io.TlsSession {
       cb.invoke(Failure(tlsError('TLS write failed: ${MbedtlsError.strerror(r)}', r)));
   }
 
-  function pumpShutdown(cb:Callback<Outcome<Noise, tink.core.Error>>) {
+  /** Graceful end: flush pending ciphertext, then TCP/UV shutdown. No mbedtls close_notify. */
+  function pumpEnd(cb:Callback<Outcome<Bool, tink.core.Error>>) {
     closed = true;
     flushNetOut(() -> {
       tcp.shutdown(result -> {
         switch result {
           case Error(e):
-            cb.invoke(Failure(tlsError('TLS shutdown failed: ${e}')));
+            cb.invoke(Failure(tlsError('TLS end failed: ${e}')));
           case Ok(_):
-            cb.invoke(Success(Noise));
+            cb.invoke(Success(false));
         }
       });
     });
