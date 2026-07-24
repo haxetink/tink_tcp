@@ -7,7 +7,6 @@ import tink.tcp.Client.ConnectOptions;
 import tink.tcp.connections.TcpConnection;
 import tink.tcp.eval.EvalLoop;
 #if eval_tls
-import tink.tcp.connections.TlsConnection;
 import tink.tcp.tls.TlsConfig;
 import tink.io.eval.EvalTlsSession;
 #end
@@ -68,7 +67,7 @@ class EvalClient {
                     session.handshake().handle(o -> switch o {
                       case Success(_):
                         finish(() -> {
-                          final duplex = new TlsConnection('Connection to $to', session);
+                          final duplex = new TcpConnection('Connection to $to', session);
                           app.run(duplex);
                           resolve(Noise);
                         });
