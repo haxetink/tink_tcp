@@ -6,7 +6,6 @@ import hl.uv.Tcp;
 import sys.net.Host;
 import tink.tcp.Server;
 import tink.tcp.connections.TcpConnection;
-import tink.tcp.connections.TlsConnection;
 import tink.tcp.hl.HlLoop;
 import tink.tcp.tls.TlsConfig;
 import tink.io.hl.HlTlsSession;
@@ -63,7 +62,7 @@ class HlServer implements ServerObject {
       final session = new HlTlsSession(tls, client, local);
       session.handshake().handle(o -> switch o {
         case Success(_):
-          final duplex = new TlsConnection(name, session);
+          final duplex = new TcpConnection(name, session);
           app.run(duplex);
         case Failure(e):
           // Handshake failed after accept; peer never reaches Handler.
