@@ -5,10 +5,11 @@ import cpp.Callable;
 import cpp.Star;
 import sys.net.Host;
 import tink.tcp.Client.ConnectOptions;
-import tink.tcp.connections.CppConnection;
+import tink.tcp.connections.TcpConnection;
 import tink.tcp.connections.TlsConnection;
 import tink.tcp.tls.TlsConfig;
 import tink.io.cpp.CppTlsSession;
+import tink.io.cpp.CppUvStream;
 import uv.*;
 import uv.Native.UvConnect;
 
@@ -110,7 +111,9 @@ class CppClient {
     final tls = ctx.options?.tls;
     if (tls == null) {
       finish(ctx, () -> {
-        final duplex = new CppConnection('Connection to ${ctx.to}', ctx.tcp);
+        final name = 'Connection to ${ctx.to}';
+        final stream = new CppUvStream(name, ctx.tcp);
+        final duplex = new TcpConnection(name, stream);
         ctx.app.run(duplex);
         ctx.resolve(Noise);
       });

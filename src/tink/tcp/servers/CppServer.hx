@@ -5,10 +5,11 @@ import cpp.Callable;
 import cpp.Star;
 import sys.net.Host;
 import tink.tcp.Server;
-import tink.tcp.connections.CppConnection;
+import tink.tcp.connections.TcpConnection;
 import tink.tcp.connections.TlsConnection;
 import tink.tcp.tls.TlsConfig;
 import tink.io.cpp.CppTlsSession;
+import tink.io.cpp.CppUvStream;
 import uv.*;
 import uv.Native.UvStream;
 
@@ -71,10 +72,9 @@ class CppServer implements ServerObject {
     client.nodelay(true);
     final peer = client.getPeerAddress();
     final name = 'Connection from ${peer.host}:${peer.port}';
-    final local:Endpoint = {host: boundHost, port: boundPort};
-    final peerEp:Endpoint = {host: peer.host, port: peer.port};
     if (tls == null) {
-      final duplex = new CppConnection(name, client, local, peerEp);
+      final stream = new CppUvStream(name, client);
+      final duplex = new TcpConnection(name, stream);
       app.run(duplex);
       return;
     }
