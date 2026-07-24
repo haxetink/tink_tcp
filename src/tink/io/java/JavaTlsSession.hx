@@ -75,62 +75,68 @@ class JavaTlsSession implements tink.io.TlsSession {
     });
   }
 
-  public function read(cb:Callback<Outcome<Null<Chunk>, Error>>):Void {
-    if (closed) {
-      OnMainThread.run(() -> cb.invoke(Success(null)));
-      return;
-    }
-    final once = onceRead(cb, Success(null));
-    try
-      executor.execute(new ExecutorRunnable(() -> {
-        if (closed) {
-          once.invoke(Success(null));
-          return;
-        }
-        readOnEngine(once);
-      }))
-    catch (_:Dynamic)
-      once.invoke(Success(null));
+  public function read():Promise<Null<Chunk>> {
+    return Future.irreversible(cb -> {
+      if (closed) {
+        OnMainThread.run(() -> cb(Success(null)));
+        return;
+      }
+      final once = onceRead(cb, Success(null));
+      try
+        executor.execute(new ExecutorRunnable(() -> {
+          if (closed) {
+            once.invoke(Success(null));
+            return;
+          }
+          readOnEngine(once);
+        }))
+      catch (_:Dynamic)
+        once.invoke(Success(null));
+    });
   }
 
-  public function write(chunk:Chunk, cb:Callback<Outcome<Noise, Error>>):Void {
-    if (chunk.length == 0) {
-      OnMainThread.run(() -> cb.invoke(Success(Noise)));
-      return;
-    }
-    if (closed) {
-      OnMainThread.run(() -> cb.invoke(Failure(abortedError())));
-      return;
-    }
-    final once = onceWrite(cb, Failure(abortedError()));
-    try
-      executor.execute(new ExecutorRunnable(() -> {
-        if (closed) {
-          once.invoke(Failure(abortedError()));
-          return;
-        }
-        writeOnEngine(chunk, once);
-      }))
-    catch (_:Dynamic)
-      once.invoke(Failure(abortedError()));
+  public function write(chunk:Chunk):Promise<Bool> {
+    return Future.irreversible(cb -> {
+      if (chunk.length == 0) {
+        OnMainThread.run(() -> cb(Success(true)));
+        return;
+      }
+      if (closed) {
+        OnMainThread.run(() -> cb(Failure(abortedError())));
+        return;
+      }
+      final once = onceWrite(cb, Failure(abortedError()));
+      try
+        executor.execute(new ExecutorRunnable(() -> {
+          if (closed) {
+            once.invoke(Failure(abortedError()));
+            return;
+          }
+          writeOnEngine(chunk, once);
+        }))
+      catch (_:Dynamic)
+        once.invoke(Failure(abortedError()));
+    });
   }
 
-  public function shutdown(cb:Callback<Outcome<Noise, Error>>):Void {
-    if (closed) {
-      OnMainThread.run(() -> cb.invoke(Success(Noise)));
-      return;
-    }
-    final once = onceWrite(cb, Success(Noise));
-    try
-      executor.execute(new ExecutorRunnable(() -> {
-        if (closed) {
-          once.invoke(Success(Noise));
-          return;
-        }
-        shutdownOnEngine(once);
-      }))
-    catch (_:Dynamic)
-      once.invoke(Success(Noise));
+  public function end():Promise<Bool> {
+    return Future.irreversible(cb -> {
+      if (closed) {
+        OnMainThread.run(() -> cb(Success(false)));
+        return;
+      }
+      final once = onceWrite(cb, Success(false));
+      try
+        executor.execute(new ExecutorRunnable(() -> {
+          if (closed) {
+            once.invoke(Success(false));
+            return;
+          }
+          endOnEngine(once);
+        }))
+      catch (_:Dynamic)
+        once.invoke(Success(false));
+    });
   }
 
   function onceRead(
@@ -151,12 +157,12 @@ class JavaTlsSession implements tink.io.TlsSession {
   }
 
   function onceWrite(
-    cb:Callback<Outcome<Noise, Error>>,
-    onAbort:Outcome<Noise, Error>
-  ):Callback<Outcome<Noise, Error>> {
+    cb:Callback<Outcome<Bool, Error>>,
+    onAbort:Outcome<Bool, Error>
+  ):Callback<Outcome<Bool, Error>> {
     final done = new java.util.concurrent.atomic.AtomicBoolean(false);
     var fail:Void->Void = null;
-    function finish(o:Outcome<Noise, Error>) {
+    function finish(o:Outcome<Bool, Error>) {
       if (done.compareAndSet(false, true)) {
         pendingFails.remove(fail);
         OnMainThread.run(() -> cb.invoke(o));
@@ -232,9 +238,9 @@ class JavaTlsSession implements tink.io.TlsSession {
     }
   }
 
-  function shutdownOnEngine(cb:Callback<Outcome<Noise, Error>>) {
+  function endOnEngine(cb:Callback<Outcome<Bool, Error>>) {
     if (closed) {
-      cb.invoke(Success(Noise));
+      cb.invoke(Success(false));
       return;
     }
     try {
@@ -246,9 +252,9 @@ class JavaTlsSession implements tink.io.TlsSession {
     }
   }
 
-  function flushCloseNotify(cb:Callback<Outcome<Noise, Error>>) {
+  function flushCloseNotify(cb:Callback<Outcome<Bool, Error>>) {
     if (closed) {
-      cb.invoke(Success(Noise));
+      cb.invoke(Success(false));
       return;
     }
     try {
@@ -258,34 +264,34 @@ class JavaTlsSession implements tink.io.TlsSession {
         netOut.flip();
         netWrite(netOut, () -> {
           if (closed) {
-            cb.invoke(Success(Noise));
+            cb.invoke(Success(false));
             return;
           }
           try
             executor.execute(new ExecutorRunnable(() -> flushCloseNotify(cb)))
           catch (_:Dynamic)
-            cb.invoke(Success(Noise));
+            cb.invoke(Success(false));
         });
         return;
       }
-      cb.invoke(Success(Noise));
+      cb.invoke(Success(false));
     } catch (e:Dynamic) {
       cb.invoke(Failure(Error.withData(Std.string(e), e)));
     }
   }
 
-  function writeOnEngine(chunk:Chunk, cb:Callback<Outcome<Noise, Error>>) {
+  function writeOnEngine(chunk:Chunk, cb:Callback<Outcome<Bool, Error>>) {
     writeChunkOnEngine(chunk.toBytes(), 0, chunk.length, cb);
   }
 
-  function writeChunkOnEngine(data:Bytes, offset:Int, remaining:Int, cb:Callback<Outcome<Noise, Error>>) {
+  function writeChunkOnEngine(data:Bytes, offset:Int, remaining:Int, cb:Callback<Outcome<Bool, Error>>) {
     if (closed) {
       cb.invoke(Failure(abortedError()));
       return;
     }
     try {
       if (remaining <= 0) {
-        cb.invoke(Success(Noise));
+        cb.invoke(Success(true));
         return;
       }
       final limit = Std.int(Math.min(remaining, context.getSession().getApplicationBufferSize()));
