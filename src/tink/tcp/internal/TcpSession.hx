@@ -1,4 +1,4 @@
-package tink.io;
+package tink.tcp.internal;
 
 import tink.tcp.Endpoint;
 

@@ -1,4 +1,4 @@
-package tink.io;
+package tink.tcp.internal;
 
 using tink.CoreApi;
 

@@ -1,9 +1,9 @@
 package;
 
 import tink.Chunk;
-import tink.io.DuplexSink;
-import tink.io.DuplexStream;
-import tink.io.TlsSession;
+import tink.tcp.internal.DuplexSink;
+import tink.tcp.internal.DuplexStream;
+import tink.tcp.internal.TlsSession;
 import tink.tcp.Endpoint;
 
 using tink.io.Source;

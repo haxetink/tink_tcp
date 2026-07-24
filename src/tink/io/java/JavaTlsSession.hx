@@ -15,7 +15,7 @@ import tink.tcp.tls.TlsContext;
 using tink.CoreApi;
 
 @:allow(tink.io.java)
-class JavaTlsSession implements tink.io.TlsSession {
+class JavaTlsSession implements tink.tcp.internal.TlsSession {
   static final emptyApp = ByteBuffer.allocate(0);
 
   public final channel:AsynchronousSocketChannel;

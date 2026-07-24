@@ -30,7 +30,7 @@ private typedef EndCtx = {
 /**
   Async TCP stream over linc_uv. Callbacks use `setData` + static Callables.
 **/
-class CppUvStream implements tink.io.TcpSession {
+class CppUvStream implements tink.tcp.internal.TcpSession {
   final name:String;
   public final tcp:Tcp;
   final stream:Stream;

@@ -11,7 +11,7 @@ using eval.luv.Buffer;
 
 typedef ReadOutcome = Outcome<Null<Chunk>, Error>;
 
-class WrappedStream implements tink.io.TcpSession {
+class WrappedStream implements tink.tcp.internal.TcpSession {
   final name:String;
   final stream:Tcp;
   final chunkSize:Int;

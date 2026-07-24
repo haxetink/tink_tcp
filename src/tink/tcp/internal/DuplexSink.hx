@@ -1,6 +1,7 @@
-package tink.io;
+package tink.tcp.internal;
 
 import tink.Chunk;
+import tink.io.PipeOptions;
 import tink.io.Sink;
 import tink.streams.Stream;
 

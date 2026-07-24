@@ -10,7 +10,7 @@ using tink.CoreApi;
 
 typedef HlReadOutcome = Outcome<Null<Chunk>, Error>;
 
-class HlUvStream implements tink.io.TcpSession {
+class HlUvStream implements tink.tcp.internal.TcpSession {
   final name:String;
   final stream:Stream;
   final chunkSize:Int;

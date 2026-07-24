@@ -10,7 +10,7 @@ import tink.tcp.tls.TlsContext;
 using tink.CoreApi;
 
 @:allow(tink.io.hl)
-class HlTlsSession implements tink.io.TlsSession {
+class HlTlsSession implements tink.tcp.internal.TlsSession {
   public final stream:Stream;
   final context:TlsContext;
   /** Keeps TlsConfig (and cert roots) alive for the session. */

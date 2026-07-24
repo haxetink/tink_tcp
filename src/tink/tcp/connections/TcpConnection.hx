@@ -2,9 +2,9 @@ package tink.tcp.connections;
 
 import tink.io.Source;
 import tink.io.Sink;
-import tink.io.TcpSession;
-import tink.io.DuplexSink;
-import tink.io.DuplexSource;
+import tink.tcp.internal.TcpSession;
+import tink.tcp.internal.DuplexSink;
+import tink.tcp.internal.DuplexSource;
 
 /** Internal duplex plumbing for Handler.run. */
 @:allow(tink.tcp.clients)
