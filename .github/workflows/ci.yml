@@ -41,8 +41,16 @@ jobs:
         run: lix download
 
       - name: Install linc_uv for cpp
-        run: lix install gh:kevinresol/linc_uv --flat
         if: matrix.target == 'cpp'
+        run: lix install gh:kevinresol/linc_uv --flat
+
+      - name: Compile hxcpp tools
+        if: matrix.target == 'cpp' && matrix.haxe-version == 'nightly'
+        run: |
+          HXCPP_LIBPATH=$(haxelib libpath hxcpp)
+          pushd "$HXCPP_LIBPATH"/tools/hxcpp
+          haxe compile.hxml
+          popd
 
       - name: Run Test
         run: lix run travix ${{ matrix.target }} ${{ matrix.flags }}
