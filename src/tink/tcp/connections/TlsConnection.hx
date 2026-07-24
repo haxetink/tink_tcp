@@ -3,8 +3,8 @@ package tink.tcp.connections;
 import tink.io.Source;
 import tink.io.Sink;
 import tink.io.TlsSession;
-import tink.io.TlsSink;
-import tink.io.TlsSource;
+import tink.io.DuplexSink;
+import tink.io.DuplexSource;
 
 /** Internal duplex plumbing for Handler.run. */
 @:allow(tink.tcp.clients)
@@ -20,8 +20,8 @@ class TlsConnection implements Connection {
     this.session = session;
     this.local = session.getLocalEndpoint();
     this.peer = session.getPeerEndpoint();
-    source = TlsSource.wrap('Incoming stream of $name', session);
-    sink = TlsSink.wrap('Outcoming stream of $name', session);
+    source = DuplexSource.wrap('Incoming stream of $name', session);
+    sink = DuplexSink.wrap('Outcoming stream of $name', session);
   }
 
   public function abort():Void {
