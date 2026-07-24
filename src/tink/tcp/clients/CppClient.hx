@@ -6,7 +6,6 @@ import cpp.Star;
 import sys.net.Host;
 import tink.tcp.Client.ConnectOptions;
 import tink.tcp.connections.TcpConnection;
-import tink.tcp.connections.TlsConnection;
 import tink.tcp.tls.TlsConfig;
 import tink.io.cpp.CppTlsSession;
 import tink.io.cpp.CppUvStream;
@@ -131,7 +130,8 @@ class CppClient {
           session.handshake().handle(o -> switch o {
             case Success(_):
               finish(ctx, () -> {
-                final duplex = new TlsConnection('Connection to ${ctx.to}', session);
+                final name = 'Connection to ${ctx.to}';
+                final duplex = new TcpConnection(name, session);
                 ctx.app.run(duplex);
                 ctx.resolve(Noise);
               });
