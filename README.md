@@ -30,7 +30,7 @@ typedef IncomingConnection = {
   function abort():Void;
 }
 
-/** Internal connection shape; platforms pass `*Connection` / `TlsConnection` to `Handler.run`. */
+/** Internal connection shape; platforms pass `TcpConnection` (UV+TLS shared path) or `NodeConnection` / `JavaConnection` to `Handler.run`. */
 interface Connection {
   final source:RealSource;
   final sink:RealSink;
