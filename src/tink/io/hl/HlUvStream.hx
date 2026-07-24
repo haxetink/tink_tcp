@@ -4,15 +4,18 @@ package tink.io.hl;
 import hl.uv.Stream;
 import haxe.io.Bytes;
 import tink.Chunk;
+import tink.tcp.Endpoint;
 
 using tink.CoreApi;
 
 typedef HlReadOutcome = Outcome<Null<Chunk>, Error>;
 
-class HlUvStream implements tink.io.DuplexStream {
+class HlUvStream implements tink.io.TcpSession {
   final name:String;
   final stream:Stream;
   final chunkSize:Int;
+  final local:Endpoint;
+  final peer:Endpoint;
 
   var readActive = false;
   var readEnded = false;
@@ -22,11 +25,19 @@ class HlUvStream implements tink.io.DuplexStream {
   var writeEnded = false;
   var closed = false;
 
-  public function new(name:String, stream:Stream, ?chunkSize:Int = 0x10000) {
+  public function new(name:String, stream:Stream, ?chunkSize:Int = 0x10000, ?local:Endpoint, ?peer:Endpoint) {
     this.name = name;
     this.stream = stream;
     this.chunkSize = chunkSize;
+    this.local = local ?? {host: '?', port: 0};
+    this.peer = peer ?? {host: '?', port: 0};
   }
+
+  public function getLocalEndpoint():Endpoint
+    return local;
+
+  public function getPeerEndpoint():Endpoint
+    return peer;
 
   public function read():Promise<Null<Chunk>> {
     return Future.irreversible(cb -> {
