@@ -53,8 +53,10 @@ class CppTlsSession implements tink.tcp.internal.TlsSession {
     this.stream = tcp.asStream();
     this.config = config;
     this.context = config.createContext();
-    stream.asHandle().setData(this);
-    stream.asHandle().ref();
+    // Keep PointerType abstracts in locals before method calls (hxcpp PointerReference).
+    stream.setData(this);
+    final h = stream.asHandle();
+    h.ref();
     final bioCtx:Star<cpp.Void> = untyped __cpp__('(void*){0}.GetPtr()', this);
     NativeTls.sslSetBio(context, bioCtx, Callable.fromStaticFunction(bioSend), Callable.fromStaticFunction(bioRecv));
   }
@@ -293,7 +295,7 @@ class CppTlsSession implements tink.tcp.internal.TlsSession {
   static function onTlsRead(handle:Star<UvStream>, nread:SSizeT, buf:ConstStar<Buf_t>) {
     final n:Int = cast nread;
     final s:Stream = Native.stream(handle);
-    final self:CppTlsSession = s.asHandle().getData();
+    final self:CppTlsSession = s.getData();
     if (self == null) {
       Buf.unmanaged(buf).free();
       return;

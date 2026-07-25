@@ -40,7 +40,8 @@ class CppServer implements ServerObject {
     this.tls = tls;
     this.boundHost = boundHost;
     this.boundPort = boundPort;
-    server.asHandle().setData(this);
+    // Keep PointerType abstracts in locals before method calls (hxcpp PointerReference).
+    server.setData(this);
   }
 
   public function shutdown():Promise<Noise> {
@@ -95,6 +96,7 @@ class CppServer implements ServerObject {
   }
 
   static function uvLoop():Loop {
+    tink.tcp.internal.cpp.UvProcess.ignoreSigpipe();
     #if target.threaded
     final events = haxe.EventLoop.getThreadLoop(sys.thread.Thread.current());
     return Loop.getFromEventLoop(events != null ? events : haxe.EventLoop.main);
@@ -145,7 +147,8 @@ class CppServer implements ServerObject {
 
       final sock = server.getSockAddress();
       final instance = new CppServer(server, l, app, sock.host, sock.port, tls);
-      final listenStatus = server.asStream().listen(128, Callable.fromStaticFunction(onConnection));
+      final serverStream = server.asStream();
+      final listenStatus = serverStream.listen(128, Callable.fromStaticFunction(onConnection));
       if (listenStatus != 0) {
         closeTcp(server);
         reject(uvError(listenStatus, 'Failed to listen on $to'));
@@ -160,14 +163,15 @@ class CppServer implements ServerObject {
   @:unreflective
   static function onConnection(stream:Star<UvStream>, status:Int) {
     final serverStream:Stream = Native.stream(stream);
-    final self:CppServer = serverStream.asHandle().getData();
+    final self:CppServer = serverStream.getData();
     if (self == null)
       return;
 
     if (status != 0) {
       // Shutdown heuristic: closing the listen handle cancels pending accept with UV_ECANCELED;
       // also silence whenever shutdown() has started (closeResolve set) or the handle is already closing.
-      if (self.closeResolve != null || serverStream.asHandle().isClosing() || status == Uv.ECANCELED)
+      final h = serverStream.asHandle();
+      if (self.closeResolve != null || h.isClosing() || status == Uv.ECANCELED)
         return;
       self.errorsTrigger.trigger(uvError(status, 'Accept failed'));
       return;
@@ -179,7 +183,8 @@ class CppServer implements ServerObject {
       self.errorsTrigger.trigger(uvError(initStatus, 'Accept failed: client init'));
       return;
     }
-    final acceptStatus = serverStream.accept(client.asStream());
+    final clientStream = client.asStream();
+    final acceptStatus = serverStream.accept(clientStream);
     if (acceptStatus != 0) {
       self.errorsTrigger.trigger(uvError(acceptStatus, 'Accept failed'));
       closeTcp(client);

@@ -16,21 +16,34 @@ using tink.CoreApi;
 
 typedef CppReadOutcome = Outcome<Null<Chunk>, Error>;
 
-private typedef WriteCtx = {
-  stream:CppTcpSession,
-  buf:Buf,
-  cb:Callback<Outcome<Bool, Error>>,
-};
+private class WriteCtx {
+  public final stream:CppTcpSession;
+  public final buf:Buf;
+  public final cb:Callback<Outcome<Bool, Error>>;
+  public function new(stream:CppTcpSession, buf:Buf, cb:Callback<Outcome<Bool, Error>>) {
+    this.stream = stream;
+    this.buf = buf;
+    this.cb = cb;
+  }
+}
 
-private typedef EndCtx = {
-  stream:CppTcpSession,
-  cb:Callback<Outcome<Bool, Error>>,
-};
+private class EndCtx {
+  public final stream:CppTcpSession;
+  public final cb:Callback<Outcome<Bool, Error>>;
+  public function new(stream:CppTcpSession, cb:Callback<Outcome<Bool, Error>>) {
+    this.stream = stream;
+    this.cb = cb;
+  }
+}
 
 /**
   Async TCP stream over linc_uv. Callbacks use `setData` + static Callables.
 **/
 class CppTcpSession implements tink.tcp.internal.TcpSession {
+  /** GC roots: uv handle/req `data` is a raw pointer, not a Haxe root. */
+  static final liveSessions:Array<CppTcpSession> = [];
+  static final liveConnectCtx:Array<Dynamic> = [];
+
   final name:String;
   public final tcp:Tcp;
   final stream:Stream;
@@ -43,14 +56,20 @@ class CppTcpSession implements tink.tcp.internal.TcpSession {
 
   var writeEnded = false;
   var closed = false;
+  /** Keep write/shutdown contexts alive until UV callbacks (setData is not a GC root). */
+  final pendingWriteCtxs:Array<WriteCtx> = [];
+  final pendingEndCtxs:Array<EndCtx> = [];
 
   public function new(name:String, tcp:Tcp, ?chunkSize:Int = 0x10000) {
     this.name = name;
     this.tcp = tcp;
     this.stream = tcp.asStream();
     this.chunkSize = chunkSize;
-    stream.asHandle().setData(this);
-    stream.asHandle().ref();
+    // Keep PointerType abstracts in locals before method calls (hxcpp PointerReference).
+    stream.setData(this);
+    final h = stream.asHandle();
+    h.ref();
+    liveSessions.push(this);
   }
 
   public function read():Promise<Null<Chunk>> {
@@ -84,7 +103,7 @@ class CppTcpSession implements tink.tcp.internal.TcpSession {
   static function onRead(handle:Star<UvStream>, nread:SSizeT, buf:ConstStar<Buf_t>) {
     final n:Int = cast nread;
     final s:Stream = Native.stream(handle);
-    final self:CppTcpSession = s.asHandle().getData();
+    final self:CppTcpSession = s.getData();
     if (self == null) {
       Buf.unmanaged(buf).free();
       return;
@@ -126,6 +145,10 @@ class CppTcpSession implements tink.tcp.internal.TcpSession {
 
   public function write(chunk:Chunk):Promise<Bool> {
     return Future.irreversible(cb -> {
+      if (closed || writeEnded) {
+        cb(Failure(uvError(-1, 'Write failed for "$name" (closed)')));
+        return;
+      }
       if (chunk.length == 0) {
         cb(Success(true));
         return;
@@ -135,10 +158,12 @@ class CppTcpSession implements tink.tcp.internal.TcpSession {
       final writeBuf = new Buf();
       writeBuf.alloc(bytes.length);
       writeBuf.copyFromBytes(bytes, bytes.length);
-      final ctx:WriteCtx = {stream: this, buf: writeBuf, cb: cb};
+      final ctx = new WriteCtx(this, writeBuf, cb);
+      pendingWritesRetain(ctx);
       writeReq.setData(ctx);
       final status = stream.write(writeReq, writeBuf, 1, Callable.fromStaticFunction(onWrite));
       if (status != 0) {
+        pendingWritesRelease(ctx);
         writeBuf.freeBase();
         cb(Failure(uvError(status, 'Write failed for "$name"')));
       }
@@ -149,6 +174,9 @@ class CppTcpSession implements tink.tcp.internal.TcpSession {
   static function onWrite(req:Star<UvWrite>, status:Int) {
     final writeReq:Write = Native.write(req);
     final ctx:WriteCtx = writeReq.getData();
+    if (ctx == null)
+      return;
+    ctx.stream.pendingWritesRelease(ctx);
     ctx.buf.freeBase();
     if (status == 0)
       ctx.cb.invoke(Success(true));
@@ -164,10 +192,12 @@ class CppTcpSession implements tink.tcp.internal.TcpSession {
       }
       writeEnded = true;
       final shutdownReq = new Shutdown();
-      final ctx:EndCtx = {stream: this, cb: cb};
+      final ctx = new EndCtx(this, cb);
+      pendingEndRetain(ctx);
       shutdownReq.setData(ctx);
       final status = stream.shutdown(shutdownReq, Callable.fromStaticFunction(onShutdown));
       if (status != 0) {
+        pendingEndRelease(ctx);
         tryClose();
         cb(Failure(uvError(status, 'Shutdown failed for "$name"')));
       }
@@ -178,12 +208,36 @@ class CppTcpSession implements tink.tcp.internal.TcpSession {
   static function onShutdown(req:Star<UvShutdown>, status:Int) {
     final shutdownReq:Shutdown = Native.shutdown(req);
     final ctx:EndCtx = shutdownReq.getData();
+    if (ctx == null)
+      return;
+    ctx.stream.pendingEndRelease(ctx);
     if (status != 0) {
       ctx.cb.invoke(Failure(uvError(status, 'Shutdown failed for "${ctx.stream.name}"')));
       return;
     }
     ctx.stream.tryClose();
     ctx.cb.invoke(Success(false));
+  }
+
+  function pendingWritesRetain(ctx:WriteCtx)
+    pendingWriteCtxs.push(ctx);
+
+  function pendingWritesRelease(ctx:WriteCtx) {
+    pendingWriteCtxs.remove(ctx);
+    maybeReleaseLive();
+  }
+
+  function pendingEndRetain(ctx:EndCtx)
+    pendingEndCtxs.push(ctx);
+
+  function pendingEndRelease(ctx:EndCtx) {
+    pendingEndCtxs.remove(ctx);
+    maybeReleaseLive();
+  }
+
+  function maybeReleaseLive() {
+    if (closed && pendingWriteCtxs.length == 0 && pendingEndCtxs.length == 0)
+      liveSessions.remove(this);
   }
 
   function tryClose() {
@@ -204,7 +258,10 @@ class CppTcpSession implements tink.tcp.internal.TcpSession {
 
   @:unreflective
   static function onClose(handle:Star<UvHandle>) {
-    // handle memory owned by Alloc; leave for process lifetime / GC of wrapper
+    final h:Handle = Native.handle(handle);
+    final self:CppTcpSession = h.getData();
+    if (self != null)
+      self.maybeReleaseLive();
   }
 
   public function close() {

@@ -29,6 +29,7 @@ class CppClient {
   private function new() {}
 
   static function uvLoop():Loop {
+    tink.tcp.internal.cpp.UvProcess.ignoreSigpipe();
     #if target.threaded
     final events = haxe.EventLoop.getThreadLoop(sys.thread.Thread.current());
     return Loop.getFromEventLoop(events != null ? events : haxe.EventLoop.main);
@@ -52,7 +53,8 @@ class CppClient {
       }
 
       final tcp = new Tcp();
-      final initStatus = tcp.init(uvLoop());
+      final loop = uvLoop();
+      final initStatus = tcp.init(loop);
       if (initStatus != 0) {
         reject(uvError(initStatus, 'Failed to init TCP client'));
         return null;
@@ -70,8 +72,11 @@ class CppClient {
         done: false,
       };
       connectReq.setData(ctx);
+      // Root ConnectCtx until onConnect (setData is not a GC root).
+      @:privateAccess tink.tcp.internal.cpp.CppTcpSession.liveConnectCtx.push(ctx);
       final status = tcp.connect(connectReq, dest, Callable.fromStaticFunction(onConnect));
       if (status != 0) {
+        @:privateAccess tink.tcp.internal.cpp.CppTcpSession.liveConnectCtx.remove(ctx);
         finish(ctx, () -> {
           closeTcp(tcp);
           reject(uvError(status, 'Failed to connect to $to'));
@@ -96,6 +101,8 @@ class CppClient {
   static function onConnect(req:Star<UvConnect>, status:Int) {
     final connectReq:Connect = Native.connect(req);
     final ctx:ConnectCtx = connectReq.getData();
+    if (ctx != null)
+      @:privateAccess tink.tcp.internal.cpp.CppTcpSession.liveConnectCtx.remove(ctx);
     if (status != 0) {
       // Close inside finish so cancel (which already closed) cannot double-close.
       finish(ctx, () -> {
