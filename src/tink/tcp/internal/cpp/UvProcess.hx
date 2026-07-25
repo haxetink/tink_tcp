@@ -2,6 +2,7 @@
 package tink.tcp.internal.cpp;
 
 /** One-time native process setup for UV TCP. */
+@:headerCode('#include <signal.h>')
 class UvProcess {
   static var sigpipeIgnored = false;
 
