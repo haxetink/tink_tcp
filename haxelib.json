@@ -1,22 +1,15 @@
 {
 	"name": "tink_tcp",
 	"license": "MIT",
-	"tags": [
-		"tink",
-		"cross",
-		"tcp",
-		"net",
-		"socket"
-	],
+	"tags": ["tink", "cross", "tcp", "net", "socket"],
 	"classPath": "src",
 	"description": "TCP everywhere",
-	"contributors": [
-		"back2dos"
-	],
+	"contributors": ["back2dos", "kevinresol"],
 	"releasenote": "Verious bugfixes.",
-	"version": "0.1.1",
+	"version": "0.2.0",
 	"url": "http://haxetink.org/tink_tcp",
 	"dependencies": {
+		"haxe12998": "",
 		"tink_io": ""
 	}
 }

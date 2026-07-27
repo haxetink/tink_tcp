@@ -4,18 +4,17 @@ import tink.testrunner.*;
 import tink.unit.*;
 
 class RunTests {
-    public static function main() {
-        Runner.run(TestBatch.make([
-            new TestConnect(),
-            #if nodejs
-            new TestAccept(),
-            #end
-        ])).handle(Runner.exit);
-        
-        
-        #if java
-        // HACK: prevent early exit in java, to be investigated
-        haxe.Timer.delay(function() trace('delay'), 50000);
-        #end
-    }
+  public static function main() {
+    Runner.run(TestBatch.make([
+      new EchoTest(),
+      new TestConnect(),
+      new TestAbort(),
+      new TestSinkEndFolding(),
+      new TestSessionClosed(),
+      #if (nodejs || java || hl || cpp || (eval && eval_tls))
+      new TlsTest(),
+      new TestServerErrors(),
+      #end
+    ])).handle(Runner.exit);
+  }
 }

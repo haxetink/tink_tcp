@@ -1,0 +1,6 @@
+# @install: lix --silent download "git:https://github.com/kevinresol/linc_uv#7119f88f2a3dbcadf195495fb9d6b8b212be2a35" into linc_uv/0.1.0/git/7119f88f2a3dbcadf195495fb9d6b8b212be2a35
+-lib haxe12998
+-cp ${HAXE_LIBCACHE}/linc_uv/0.1.0/git/7119f88f2a3dbcadf195495fb9d6b8b212be2a35/src
+-D linc_uv=0.1.0
+uv.EventLoopHook
+--macro uv.Macro.setup()

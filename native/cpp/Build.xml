@@ -1,0 +1,26 @@
+<xml>
+	<include name="${HXCPP}/project/thirdparty/mbedtls-files.xml" />
+
+	<files id="tink_tcp_mbedtls">
+		<depend files="hxcpp-depends"/>
+		<depend name="${this_dir}/Build.xml" dateOnly="true" />
+		<cache value="true" asLibrary="true" />
+		<include name="${HXCPP}/project/thirdparty/mbedtls-flags.xml" />
+		<compilerflag value="-I${this_dir}" />
+		<file name="${this_dir}/tink_tcp_mbedtls.cpp"/>
+	</files>
+
+	<files id="haxe">
+		<compilerflag value="-I${this_dir}" />
+	</files>
+
+	<target id="haxe">
+		<files id="tink_tcp_mbedtls" />
+		<files id="mbedtls" />
+		<lib name="advapi32.lib" if="windows" unless="static_link" />
+		<lib name="crypt32.lib" if="windows" unless="static_link" />
+		<lib name="ws2_32.lib" if="windows" unless="static_link" />
+		<flag value="-framework" if="macos"/>
+		<flag value="Security" if="macos"/>
+	</target>
+</xml>

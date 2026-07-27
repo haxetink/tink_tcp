@@ -3,3 +3,5 @@
 -dce full
 
 -lib tink_unittest
+
+-D NO_PRECOMPILED_HEADERS
